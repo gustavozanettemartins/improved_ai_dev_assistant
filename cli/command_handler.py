@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import asyncio
 import os
 import re
 import shlex
@@ -42,7 +42,8 @@ class CommandHandler:
             ":config": self._config_command,
             ":model": self._model_command,
             ":clear": self._clear_command,
-            ":exit": self._exit_command
+            ":dialogue": self._dialogue_command,
+            ":exit": self._exit_command,
         }
         logger.info("CommandHandler initialized")
 
@@ -170,6 +171,8 @@ class CommandHandler:
             (":config", "get|set|show <args>", "Configuration management"),
             (":model", "[model_name]", "Get or set the active AI model"),
             (":clear", "", "Clear the terminal screen"),
+            (":dialogue", "<model1> <model2> <topic> [--turns=N] [--verbose]",
+             "Create a dialogue between two AI models"),
             (":exit", "", "Exit the application")
         ]
 
@@ -1702,6 +1705,204 @@ class CommandHandler:
         # Use system-appropriate clear command
         os.system('cls' if os.name == 'nt' else 'clear')
         return ""
+
+    async def _dialogue_command(self, args: List[str]) -> str:
+        """Facilitate a dialogue between multiple AI models."""
+        if len(args) < 3:
+            return "Usage: :dialogue <model1> <model2> [model3] [model4] [...] <topic> [--turns=N] [--verbose]"
+
+        # Parse arguments
+        models = []
+        topic_parts = []
+        turns = 3  # Default number of turns
+        verbose = False
+
+        # Parse all arguments
+        i = 0
+        available_models = config_manager.get("models", {}).keys()
+
+        # First collect models until we hit something that's not a model
+        while i < len(args) and args[i] in available_models:
+            models.append(args[i])
+            i += 1
+
+        # Need at least 2 models
+        if len(models) < 2:
+            return f"Please specify at least 2 valid models. Available models: {', '.join(available_models)}"
+
+        # Parse remaining arguments
+        while i < len(args):
+            if args[i].startswith("--"):
+                # Handle parameters
+                if args[i].startswith("--turns="):
+                    try:
+                        turns = int(args[i].split("=")[1])
+                    except ValueError:
+                        return f"Invalid value for turns: {args[i]}"
+                elif args[i] == "--verbose":
+                    verbose = True
+            else:
+                topic_parts.append(args[i])
+            i += 1
+
+        topic = " ".join(topic_parts)
+        if not topic:
+            return "Please provide a topic for the dialogue."
+
+        # Display information
+        print(f"{Fore.CYAN}Starting dialogue between {len(models)} models on: {topic}{Style.RESET_ALL}")
+        print(f"Models: {', '.join(models)}")
+        print(f"Number of turns per model: {turns}")
+
+        # Initialize dialogue context
+        dialogue = [f"This is a dialogue between {len(models)} AI assistants on the topic: {topic}"]
+
+        # Initialize model API
+        model_api = self.dev_assistant.model_api
+
+        # Start the conversation
+        turn_counter = 1
+        total_turns = turns * len(models)
+
+        for turn in range(1, total_turns + 1):
+            # Determine which model's turn it is (round-robin)
+            current_model_index = (turn - 1) % len(models)
+            current_model = models[current_model_index]
+
+            # Create the prompt for the current model
+            if turn == 1:
+                # First model starts the conversation
+                prompt = f"You are participating in a dialogue with {len(models) - 1} other AI assistants on the topic: {topic}. You are the first to speak. Please start the conversation with an interesting perspective or question on this topic."
+            else:
+                # Build conversational context with clear speaker identification
+                # Limit history to last few turns to avoid context overflow
+                max_context_turns = min(len(models) * 2, len(dialogue) - 1)  # Keep at least 2 rounds or all available
+                recent_dialogue = dialogue[:1] + dialogue[-max_context_turns:]
+
+                dialogue_history = "\n\n".join(recent_dialogue)
+
+                # Create a more informative prompt that explains the conversation context
+                prompt = f"""You are participating in a dialogue with {len(models) - 1} other AI assistants on the topic: {topic}.
+
+    You are the model "{current_model}". Please respond to the previous messages in a thoughtful and engaging way.
+
+    Here's the conversation so far:
+
+    {dialogue_history}
+
+    It's now your turn to contribute to this dialogue. Please provide your perspective or response to what has been discussed. Keep your response concise, under 250 words.
+    """
+
+            # Show which model is responding
+            model_turn = (turn - 1) // len(models) + 1
+            print(f"\n{Fore.YELLOW}[Round {model_turn}, {current_model}]{Style.RESET_ALL}")
+
+            # Show thinking indicator
+            if not verbose:
+                print("Thinking... ", end="", flush=True)
+
+            # Generate response with retry mechanism
+            max_retries = 3
+            response = None
+            retry_count = 0
+
+            while response is None and retry_count < max_retries:
+                try:
+                    if verbose:
+                        # Use streaming for verbose mode
+                        response_chunks = []
+
+                        async def handle_chunk(chunk):
+                            response_chunks.append(chunk)
+                            print(chunk, end="", flush=True)
+
+                        response = await model_api.stream_response(current_model, prompt, handle_chunk)
+                    else:
+                        # Use regular generation for non-verbose mode
+                        response = await model_api.generate_response(current_model, prompt)
+                        if response:
+                            print("Done!")
+                            print(response)
+
+                except Exception as e:
+                    error_str = str(e)
+                    retry_count += 1
+
+                    if "Chunk too big" in error_str:
+                        # If context is too large, reduce it further
+                        print(
+                            f"\n{Fore.RED}Error: Context too large. Retrying with smaller context... ({retry_count}/{max_retries}){Style.RESET_ALL}")
+                        # Cut the dialogue history in half for next attempt
+                        max_context_turns = max_context_turns // 2
+                        if max_context_turns < 1:
+                            max_context_turns = 1  # Minimum of one turn
+
+                        # Simplify the prompt for the retry
+                        recent_dialogue = dialogue[:1] + dialogue[-max_context_turns:]
+                        dialogue_history = "\n\n".join(recent_dialogue)
+                        prompt = f"""You are model "{current_model}" in a dialogue about "{topic}".
+    Recent messages:
+    {dialogue_history}
+
+    Your turn to respond (briefly, under 150 words):"""
+                    else:
+                        print(f"\n{Fore.RED}Error: {e}. Retrying... ({retry_count}/{max_retries}){Style.RESET_ALL}")
+                        await asyncio.sleep(1)  # Brief pause before retry
+
+            # If all retries failed, use a fallback response
+            if response is None:
+                response = f"[I apologize, but I encountered a technical issue and couldn't generate a proper response for the dialogue. Let's continue the conversation.]"
+                print(
+                    f"\n{Fore.RED}Failed to get response after {max_retries} attempts. Using fallback response.{Style.RESET_ALL}")
+
+            # Add the response to the dialogue
+            dialogue.append(f"[{current_model}]: {response}")
+
+            # Brief pause between turns to allow for reading
+            if turn < total_turns:
+                await asyncio.sleep(0.5)
+
+        # Save the dialogue to a file
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Sanitize model names for filename
+        safe_models = "-".join([model.replace(":", "-").replace("/", "-").replace("\\", "-").split(':')[0][:10]
+                                for model in models])
+
+        # Truncate if too long
+        if len(safe_models) > 50:
+            safe_models = safe_models[:50] + "-etc"
+
+        filename = f"dialogue_{len(models)}models_{safe_models}_{timestamp}.md"
+
+        # Get the current project directory or use working directory
+        if self.dev_assistant.current_project:
+            output_dir = os.path.join(self.dev_assistant.current_project.directory, "dialogues")
+        else:
+            output_dir = os.path.join(config_manager.get("working_dir"), "dialogues")
+
+        os.makedirs(output_dir, exist_ok=True)
+        filepath = os.path.join(output_dir, filename)
+
+        async with aiofiles.open(filepath, 'w', encoding='utf-8') as f:
+            await f.write(f"# Dialogue between {len(models)} models on '{topic}'\n\n")
+            await f.write(f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            await f.write(f"Models participating: {', '.join(models)}\n\n")
+
+            for i, entry in enumerate(dialogue[1:], 1):  # Skip the initial instruction
+                if "]: " in entry:  # Make sure it has the expected format
+                    model_name = entry.split("]: ")[0][1:]
+                    message = entry.split("]: ", 1)[1]
+
+                    round_num = (i - 1) // len(models) + 1
+                    model_index = (i - 1) % len(models) + 1
+
+                    await f.write(f"## Round {round_num} - Model {model_index}: {model_name}\n\n")
+                    await f.write(f"{message}\n\n")
+                else:
+                    await f.write(f"## Entry {i}\n\n{entry}\n\n")
+
+        return f"\n{Fore.GREEN}Dialogue completed!{Style.RESET_ALL}\nSaved to: {filepath}"
 
     async def _exit_command(self, args: List[str]) -> str:
         """Exit the application."""

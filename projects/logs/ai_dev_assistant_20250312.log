@@ -9,3 +9,193 @@
 2025-03-12 14:42:40,680 - AI-Dev-Assistant - INFO - Scanned 0 projects
 2025-03-12 14:42:44,853 - AI-Dev-Assistant - INFO - Generated 22 chars from qwen2.5-coder:14b in 4.17s (5.3 chars/sec)
 2025-03-12 14:42:57,647 - AI-Dev-Assistant - INFO - Application exited normally
+2025-03-12 14:44:49,042 - AI-Dev-Assistant - INFO - Logging initialized at level INFO
+2025-03-12 14:44:49,191 - AI-Dev-Assistant - INFO - Response cache initialized with max size 100MB
+2025-03-12 14:44:49,195 - AI-Dev-Assistant - INFO - ProjectManager initialized with base directory: projects
+2025-03-12 14:44:49,215 - AI-Dev-Assistant - INFO - Loaded 0 messages from history
+2025-03-12 14:44:49,215 - AI-Dev-Assistant - INFO - Initialized ConversationManager with file: projects\dev_conversation_history.json
+2025-03-12 14:44:49,215 - AI-Dev-Assistant - INFO - ModelAPI initialized with URL: http://localhost:11434/api/generate
+2025-03-12 14:44:49,216 - AI-Dev-Assistant - INFO - DevAssistant initialized with model: qwen2.5-coder:14b
+2025-03-12 14:44:49,216 - AI-Dev-Assistant - INFO - CommandHandler initialized
+2025-03-12 14:44:49,216 - AI-Dev-Assistant - INFO - Scanned 0 projects
+2025-03-12 14:44:49,219 - AI-Dev-Assistant - INFO - Cache hit for prompt (model: qwen2.5-coder:14b, 78 chars) in 0.00s
+2025-03-12 14:45:13,281 - AI-Dev-Assistant - INFO - Model changed to: qwen2.5-coder:7b
+2025-03-12 14:45:54,861 - AI-Dev-Assistant - INFO - Streamed 384 chars from qwen2.5-coder:7b in 3.01s (127.7 chars/sec)
+2025-03-12 14:45:57,607 - AI-Dev-Assistant - INFO - Streamed 1538 chars from llama3.2:latest in 2.75s (560.0 chars/sec)
+2025-03-12 14:46:00,653 - AI-Dev-Assistant - INFO - Streamed 2497 chars from qwen2.5-coder:7b in 3.05s (819.8 chars/sec)
+2025-03-12 14:46:02,355 - AI-Dev-Assistant - INFO - Streamed 2305 chars from llama3.2:latest in 1.70s (1354.4 chars/sec)
+2025-03-12 14:46:06,934 - AI-Dev-Assistant - INFO - Streamed 3787 chars from qwen2.5-coder:7b in 4.58s (827.1 chars/sec)
+2025-03-12 14:46:08,944 - AI-Dev-Assistant - INFO - Streamed 2734 chars from llama3.2:latest in 2.01s (1360.5 chars/sec)
+2025-03-12 14:46:14,516 - AI-Dev-Assistant - INFO - Streamed 3660 chars from qwen2.5-coder:7b in 5.57s (656.9 chars/sec)
+2025-03-12 14:46:17,547 - AI-Dev-Assistant - INFO - Streamed 3461 chars from llama3.2:latest in 3.03s (1141.9 chars/sec)
+2025-03-12 14:46:22,372 - AI-Dev-Assistant - INFO - Streamed 3769 chars from qwen2.5-coder:7b in 4.82s (781.2 chars/sec)
+2025-03-12 14:46:24,167 - AI-Dev-Assistant - INFO - Streamed 2209 chars from llama3.2:latest in 1.79s (1230.8 chars/sec)
+2025-03-12 14:46:33,355 - AI-Dev-Assistant - INFO - Streamed 7013 chars from qwen2.5-coder:7b in 9.19s (763.3 chars/sec)
+2025-03-12 14:46:35,862 - AI-Dev-Assistant - INFO - Streamed 2950 chars from llama3.2:latest in 2.51s (1177.0 chars/sec)
+2025-03-12 14:46:42,986 - AI-Dev-Assistant - INFO - Streamed 5374 chars from qwen2.5-coder:7b in 7.12s (754.4 chars/sec)
+2025-03-12 14:46:47,224 - AI-Dev-Assistant - INFO - Streamed 5249 chars from llama3.2:latest in 4.24s (1238.6 chars/sec)
+2025-03-12 14:46:54,289 - AI-Dev-Assistant - INFO - Streamed 5329 chars from qwen2.5-coder:7b in 7.07s (754.2 chars/sec)
+2025-03-12 14:46:58,515 - AI-Dev-Assistant - INFO - Streamed 5233 chars from llama3.2:latest in 4.23s (1238.5 chars/sec)
+2025-03-12 14:47:06,851 - AI-Dev-Assistant - INFO - Streamed 6246 chars from qwen2.5-coder:7b in 8.34s (749.3 chars/sec)
+2025-03-12 14:47:09,615 - AI-Dev-Assistant - INFO - Streamed 3420 chars from llama3.2:latest in 2.76s (1237.3 chars/sec)
+2025-03-12 14:47:14,950 - AI-Dev-Assistant - INFO - Streamed 4017 chars from qwen2.5-coder:7b in 5.33s (753.0 chars/sec)
+2025-03-12 14:47:17,785 - AI-Dev-Assistant - INFO - Streamed 3543 chars from llama3.2:latest in 2.83s (1249.8 chars/sec)
+2025-03-12 14:47:22,894 - AI-Dev-Assistant - INFO - Streamed 3525 chars from qwen2.5-coder:7b in 5.11s (690.0 chars/sec)
+2025-03-12 14:47:26,310 - AI-Dev-Assistant - INFO - Streamed 4176 chars from llama3.2:latest in 3.42s (1222.6 chars/sec)
+2025-03-12 14:47:28,525 - AI-Dev-Assistant - INFO - Streamed 1656 chars from qwen2.5-coder:7b in 2.22s (747.5 chars/sec)
+2025-03-12 14:47:30,834 - AI-Dev-Assistant - INFO - Streamed 2823 chars from llama3.2:latest in 2.31s (1223.0 chars/sec)
+2025-03-12 14:47:36,623 - AI-Dev-Assistant - INFO - Streamed 4435 chars from qwen2.5-coder:7b in 5.79s (766.1 chars/sec)
+2025-03-12 14:47:38,400 - AI-Dev-Assistant - INFO - Streamed 1977 chars from llama3.2:latest in 1.78s (1113.1 chars/sec)
+2025-03-12 14:47:41,164 - AI-Dev-Assistant - INFO - Streamed 1884 chars from qwen2.5-coder:7b in 2.76s (681.5 chars/sec)
+2025-03-12 14:47:42,822 - AI-Dev-Assistant - INFO - Streamed 1875 chars from llama3.2:latest in 1.66s (1131.5 chars/sec)
+2025-03-12 14:47:45,647 - AI-Dev-Assistant - INFO - Streamed 1904 chars from qwen2.5-coder:7b in 2.83s (673.9 chars/sec)
+2025-03-12 14:47:47,896 - AI-Dev-Assistant - INFO - Streamed 2570 chars from llama3.2:latest in 2.25s (1143.1 chars/sec)
+2025-03-12 14:47:48,670 - AI-Dev-Assistant - INFO - Streamed 371 chars from qwen2.5-coder:7b in 0.77s (479.4 chars/sec)
+2025-03-12 14:47:50,410 - AI-Dev-Assistant - INFO - Streamed 1928 chars from llama3.2:latest in 1.74s (1108.0 chars/sec)
+2025-03-12 14:47:53,547 - AI-Dev-Assistant - INFO - Streamed 2090 chars from qwen2.5-coder:7b in 3.14s (666.2 chars/sec)
+2025-03-12 14:47:54,368 - AI-Dev-Assistant - INFO - Streamed 787 chars from llama3.2:latest in 0.82s (959.7 chars/sec)
+2025-03-12 14:47:55,144 - AI-Dev-Assistant - INFO - Streamed 325 chars from qwen2.5-coder:7b in 0.78s (418.6 chars/sec)
+2025-03-12 14:47:57,357 - AI-Dev-Assistant - INFO - Streamed 2590 chars from llama3.2:latest in 2.21s (1170.6 chars/sec)
+2025-03-12 14:47:58,896 - AI-Dev-Assistant - INFO - Streamed 965 chars from qwen2.5-coder:7b in 1.54s (627.4 chars/sec)
+2025-03-12 14:48:02,562 - AI-Dev-Assistant - INFO - Streamed 4418 chars from llama3.2:latest in 3.67s (1205.3 chars/sec)
+2025-03-12 14:48:04,086 - AI-Dev-Assistant - INFO - Streamed 963 chars from qwen2.5-coder:7b in 1.52s (631.7 chars/sec)
+2025-03-12 14:48:06,343 - AI-Dev-Assistant - INFO - Streamed 2849 chars from llama3.2:latest in 2.26s (1262.8 chars/sec)
+2025-03-12 14:48:06,343 - AI-Dev-Assistant - ERROR - Error executing command :dialogue: [Errno 22] Invalid argument: 'projects\\dialogues\\dialogue_qwen2.5-coder:7b_vs_llama3.2:latest_20250312_144806.md'
+Traceback (most recent call last):
+  File "C:\Users\gusta\Desktop\projects_github\improved_ai_dev_assistant\cli\command_handler.py", line 77, in handle_command
+    return await handler(command_args[1:])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gusta\Desktop\projects_github\improved_ai_dev_assistant\cli\command_handler.py", line 1812, in _dialogue_command
+    async with aiofiles.open(filepath, 'w', encoding='utf-8') as f:
+               ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gusta\Desktop\projects_github\improved_ai_dev_assistant\.venv\Lib\site-packages\aiofiles\base.py", line 63, in __aenter__
+    return await self
+           ^^^^^^^^^^
+  File "C:\Users\gusta\Desktop\projects_github\improved_ai_dev_assistant\.venv\Lib\site-packages\aiofiles\base.py", line 59, in __await__
+    self._obj = yield from self._coro.__await__()
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gusta\Desktop\projects_github\improved_ai_dev_assistant\.venv\Lib\site-packages\aiofiles\threadpool\__init__.py", line 92, in _open
+    f = await loop.run_in_executor(executor, cb)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\concurrent\futures\thread.py", line 59, in run
+    result = self.fn(*self.args, **self.kwargs)
+OSError: [Errno 22] Invalid argument: 'projects\\dialogues\\dialogue_qwen2.5-coder:7b_vs_llama3.2:latest_20250312_144806.md'
+2025-03-12 14:49:23,371 - AI-Dev-Assistant - ERROR - Error in main loop: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+Traceback (most recent call last):
+  File "C:\Users\gusta\Desktop\projects_github\improved_ai_dev_assistant\main.py", line 66, in main
+    user_input = input(f"{Fore.BLUE}>>> {Style.RESET_ALL}")
+  File "<frozen codecs>", line 325, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2025-03-12 14:49:24,123 - AI-Dev-Assistant - INFO - Logging initialized at level INFO
+2025-03-12 14:49:24,279 - AI-Dev-Assistant - INFO - Response cache initialized with max size 100MB
+2025-03-12 14:49:24,282 - AI-Dev-Assistant - INFO - ProjectManager initialized with base directory: projects
+2025-03-12 14:49:24,303 - AI-Dev-Assistant - INFO - Loaded 0 messages from history
+2025-03-12 14:49:24,303 - AI-Dev-Assistant - INFO - Initialized ConversationManager with file: projects\dev_conversation_history.json
+2025-03-12 14:49:24,303 - AI-Dev-Assistant - INFO - ModelAPI initialized with URL: http://localhost:11434/api/generate
+2025-03-12 14:49:24,303 - AI-Dev-Assistant - INFO - DevAssistant initialized with model: qwen2.5-coder:14b
+2025-03-12 14:49:24,303 - AI-Dev-Assistant - INFO - CommandHandler initialized
+2025-03-12 14:49:24,303 - AI-Dev-Assistant - INFO - Project initialized: dialogues in projects\dialogues
+2025-03-12 14:49:24,304 - AI-Dev-Assistant - INFO - Scanned 0 files in project dialogues
+2025-03-12 14:49:24,304 - AI-Dev-Assistant - INFO - Scanned 1 projects
+2025-03-12 14:49:24,307 - AI-Dev-Assistant - INFO - Cache hit for prompt (model: qwen2.5-coder:14b, 78 chars) in 0.00s
+2025-03-12 14:50:10,380 - AI-Dev-Assistant - INFO - Streamed 428 chars from llama3.2:latest in 0.60s (718.7 chars/sec)
+2025-03-12 14:50:17,965 - AI-Dev-Assistant - INFO - Streamed 6098 chars from qwen2.5-coder:7b in 7.59s (803.9 chars/sec)
+2025-03-12 14:50:19,886 - AI-Dev-Assistant - INFO - Streamed 2343 chars from llama3.2:latest in 1.92s (1220.1 chars/sec)
+2025-03-12 14:50:24,104 - AI-Dev-Assistant - INFO - Streamed 3493 chars from qwen2.5-coder:7b in 4.22s (828.2 chars/sec)
+2025-03-12 14:50:25,739 - AI-Dev-Assistant - INFO - Streamed 2004 chars from llama3.2:latest in 1.64s (1225.5 chars/sec)
+2025-03-12 14:50:28,562 - AI-Dev-Assistant - INFO - Streamed 2090 chars from qwen2.5-coder:7b in 2.82s (740.3 chars/sec)
+2025-03-12 14:50:30,011 - AI-Dev-Assistant - INFO - Streamed 1792 chars from llama3.2:latest in 1.45s (1236.9 chars/sec)
+2025-03-12 14:50:33,418 - AI-Dev-Assistant - INFO - Streamed 2551 chars from qwen2.5-coder:7b in 3.41s (748.8 chars/sec)
+2025-03-12 14:50:36,544 - AI-Dev-Assistant - INFO - Streamed 3674 chars from llama3.2:latest in 3.13s (1175.3 chars/sec)
+2025-03-12 14:50:46,350 - AI-Dev-Assistant - INFO - Streamed 7450 chars from qwen2.5-coder:7b in 9.81s (759.8 chars/sec)
+2025-03-12 14:53:59,050 - AI-Dev-Assistant - ERROR - Error in main loop: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+Traceback (most recent call last):
+  File "C:\Users\gusta\Desktop\projects_github\improved_ai_dev_assistant\main.py", line 66, in main
+    user_input = input(f"{Fore.BLUE}>>> {Style.RESET_ALL}")
+  File "<frozen codecs>", line 325, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2025-03-12 14:53:59,769 - AI-Dev-Assistant - INFO - Logging initialized at level INFO
+2025-03-12 14:53:59,927 - AI-Dev-Assistant - INFO - Response cache initialized with max size 100MB
+2025-03-12 14:53:59,931 - AI-Dev-Assistant - INFO - ProjectManager initialized with base directory: projects
+2025-03-12 14:53:59,955 - AI-Dev-Assistant - INFO - Loaded 0 messages from history
+2025-03-12 14:53:59,955 - AI-Dev-Assistant - INFO - Initialized ConversationManager with file: projects\dev_conversation_history.json
+2025-03-12 14:53:59,955 - AI-Dev-Assistant - INFO - ModelAPI initialized with URL: http://localhost:11434/api/generate
+2025-03-12 14:53:59,956 - AI-Dev-Assistant - INFO - DevAssistant initialized with model: qwen2.5-coder:14b
+2025-03-12 14:53:59,956 - AI-Dev-Assistant - INFO - CommandHandler initialized
+2025-03-12 14:53:59,956 - AI-Dev-Assistant - INFO - Project initialized: dialogues in projects\dialogues
+2025-03-12 14:53:59,956 - AI-Dev-Assistant - INFO - Scanned 1 files in project dialogues
+2025-03-12 14:53:59,956 - AI-Dev-Assistant - INFO - Scanned 1 projects
+2025-03-12 14:53:59,959 - AI-Dev-Assistant - INFO - Cache hit for prompt (model: qwen2.5-coder:14b, 78 chars) in 0.00s
+2025-03-12 14:54:13,050 - AI-Dev-Assistant - INFO - Application exited normally
+2025-03-12 14:58:19,490 - AI-Dev-Assistant - INFO - Logging initialized at level INFO
+2025-03-12 14:58:19,650 - AI-Dev-Assistant - INFO - Response cache initialized with max size 100MB
+2025-03-12 14:58:19,654 - AI-Dev-Assistant - INFO - ProjectManager initialized with base directory: projects
+2025-03-12 14:58:19,658 - AI-Dev-Assistant - INFO - Loaded 0 messages from history
+2025-03-12 14:58:19,658 - AI-Dev-Assistant - INFO - Initialized ConversationManager with file: projects\dev_conversation_history.json
+2025-03-12 14:58:19,658 - AI-Dev-Assistant - INFO - ModelAPI initialized with URL: http://localhost:11434/api/generate
+2025-03-12 14:58:19,658 - AI-Dev-Assistant - INFO - DevAssistant initialized with model: qwen2.5-coder:14b
+2025-03-12 14:58:19,658 - AI-Dev-Assistant - INFO - CommandHandler initialized
+2025-03-12 14:58:19,659 - AI-Dev-Assistant - INFO - Project initialized: dialogues in projects\dialogues
+2025-03-12 14:58:19,659 - AI-Dev-Assistant - INFO - Scanned 1 files in project dialogues
+2025-03-12 14:58:19,659 - AI-Dev-Assistant - INFO - Scanned 1 projects
+2025-03-12 14:58:19,662 - AI-Dev-Assistant - INFO - Cache hit for prompt (model: qwen2.5-coder:14b, 78 chars) in 0.00s
+2025-03-12 15:00:56,243 - AI-Dev-Assistant - INFO - Streamed 671 chars from qwen2.5-coder:7b in 2.10s (319.7 chars/sec)
+2025-03-12 15:01:05,050 - AI-Dev-Assistant - INFO - Streamed 3342 chars from phi4:latest in 8.30s (402.6 chars/sec)
+2025-03-12 15:01:09,067 - AI-Dev-Assistant - INFO - Streamed 2782 chars from llama3.2:latest in 3.52s (791.2 chars/sec)
+2025-03-12 15:01:15,220 - AI-Dev-Assistant - INFO - Streamed 4162 chars from qwen2.5-coder:7b in 5.65s (736.9 chars/sec)
+2025-03-12 15:01:24,385 - AI-Dev-Assistant - INFO - Streamed 3764 chars from phi4:latest in 8.65s (435.1 chars/sec)
+2025-03-12 15:01:47,589 - AI-Dev-Assistant - INFO - Streamed 29636 chars from llama3.2:latest in 22.70s (1305.3 chars/sec)
+2025-03-12 15:01:52,217 - AI-Dev-Assistant - INFO - Streamed 3168 chars from qwen2.5-coder:7b in 4.12s (768.0 chars/sec)
+2025-03-12 15:02:01,976 - AI-Dev-Assistant - INFO - Streamed 4097 chars from phi4:latest in 9.25s (442.9 chars/sec)
+2025-03-12 15:02:04,602 - AI-Dev-Assistant - INFO - Streamed 2626 chars from llama3.2:latest in 2.11s (1242.5 chars/sec)
+2025-03-12 15:02:09,755 - AI-Dev-Assistant - INFO - Streamed 3460 chars from qwen2.5-coder:7b in 4.65s (743.8 chars/sec)
+2025-03-12 15:02:18,012 - AI-Dev-Assistant - INFO - Streamed 3362 chars from phi4:latest in 7.74s (434.1 chars/sec)
+2025-03-12 15:02:19,694 - AI-Dev-Assistant - INFO - Streamed 1358 chars from llama3.2:latest in 1.18s (1152.4 chars/sec)
+2025-03-12 15:02:25,383 - AI-Dev-Assistant - INFO - Streamed 3826 chars from qwen2.5-coder:7b in 5.19s (737.6 chars/sec)
+2025-03-12 15:02:35,230 - AI-Dev-Assistant - INFO - Streamed 4127 chars from phi4:latest in 9.34s (442.0 chars/sec)
+2025-03-12 15:02:35,918 - AI-Dev-Assistant - INFO - Streamed 29 chars from llama3.2:latest in 0.19s (155.7 chars/sec)
+2025-03-12 15:02:41,346 - AI-Dev-Assistant - INFO - Streamed 3684 chars from qwen2.5-coder:7b in 4.93s (747.8 chars/sec)
+2025-03-12 15:02:51,326 - AI-Dev-Assistant - INFO - Streamed 3977 chars from phi4:latest in 9.48s (419.6 chars/sec)
+2025-03-12 15:02:53,330 - AI-Dev-Assistant - INFO - Streamed 1729 chars from llama3.2:latest in 1.49s (1159.3 chars/sec)
+2025-03-12 15:03:01,452 - AI-Dev-Assistant - INFO - Streamed 5208 chars from qwen2.5-coder:7b in 7.61s (684.6 chars/sec)
+2025-03-12 15:03:11,264 - AI-Dev-Assistant - INFO - Streamed 3859 chars from phi4:latest in 9.31s (414.6 chars/sec)
+2025-03-12 15:03:13,949 - AI-Dev-Assistant - INFO - Streamed 2636 chars from llama3.2:latest in 2.18s (1206.5 chars/sec)
+2025-03-12 15:03:20,531 - AI-Dev-Assistant - INFO - Streamed 4685 chars from qwen2.5-coder:7b in 6.07s (771.4 chars/sec)
+2025-03-12 15:03:32,201 - AI-Dev-Assistant - INFO - Streamed 4774 chars from phi4:latest in 11.17s (427.4 chars/sec)
+2025-03-12 15:03:34,075 - AI-Dev-Assistant - INFO - Streamed 1576 chars from llama3.2:latest in 1.37s (1151.5 chars/sec)
+2025-03-12 15:03:40,304 - AI-Dev-Assistant - INFO - Streamed 4285 chars from qwen2.5-coder:7b in 5.72s (749.5 chars/sec)
+2025-03-12 15:03:49,601 - AI-Dev-Assistant - INFO - Streamed 3790 chars from phi4:latest in 8.79s (431.2 chars/sec)
+2025-03-12 15:03:51,487 - AI-Dev-Assistant - INFO - Streamed 1501 chars from llama3.2:latest in 1.37s (1091.7 chars/sec)
+2025-03-12 15:03:59,130 - AI-Dev-Assistant - INFO - Streamed 4906 chars from qwen2.5-coder:7b in 7.14s (687.6 chars/sec)
+2025-03-12 15:04:08,868 - AI-Dev-Assistant - INFO - Streamed 3661 chars from phi4:latest in 9.23s (396.7 chars/sec)
+2025-03-12 15:04:10,499 - AI-Dev-Assistant - INFO - Streamed 1238 chars from llama3.2:latest in 1.13s (1099.5 chars/sec)
+2025-03-12 15:04:16,431 - AI-Dev-Assistant - INFO - Streamed 3828 chars from qwen2.5-coder:7b in 5.43s (704.9 chars/sec)
+2025-03-12 15:04:26,306 - AI-Dev-Assistant - INFO - Streamed 3804 chars from phi4:latest in 9.36s (406.4 chars/sec)
+2025-03-12 15:04:27,968 - AI-Dev-Assistant - INFO - Streamed 1066 chars from llama3.2:latest in 1.15s (924.2 chars/sec)
+2025-03-12 15:04:36,731 - AI-Dev-Assistant - INFO - Streamed 6180 chars from qwen2.5-coder:7b in 8.26s (748.1 chars/sec)
+2025-03-12 15:04:46,593 - AI-Dev-Assistant - INFO - Streamed 3757 chars from phi4:latest in 9.35s (401.8 chars/sec)
+2025-03-12 15:04:49,567 - AI-Dev-Assistant - INFO - Streamed 3364 chars from llama3.2:latest in 2.46s (1365.4 chars/sec)
+2025-03-12 15:04:56,076 - AI-Dev-Assistant - INFO - Streamed 4091 chars from qwen2.5-coder:7b in 6.00s (681.5 chars/sec)
+2025-03-12 15:05:04,859 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:05:08,108 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:05:14,614 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:05:25,093 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:05:27,712 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:05:33,730 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:05:42,025 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:05:43,661 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:05:48,754 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:05:58,098 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:01,001 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:09,064 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:19,345 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:21,362 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:29,569 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:38,038 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:39,632 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:43,194 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:51,212 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:52,531 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:06:56,570 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:07:04,184 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
+2025-03-12 15:07:05,225 - AI-Dev-Assistant - ERROR - Error communicating with model API: Chunk too big
