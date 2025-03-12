@@ -21,7 +21,8 @@ DEFAULT_CONFIG = {
     "models": {
         "qwen2.5-coder:14b": {"temperature": 0.7, "timeout": 60},
         "llama3.2:latest": {"temperature": 0.8, "timeout": 60},
-        "deepseek-r1:32b" : {"temperature": 0.7, "timeout": 90}
+        "deepseek-r1:32b" : {"temperature": 0.7, "timeout": 300},
+        "qwen2.5-coder:7b": {"temperature": 0.7, "timeout": 60}
     },
     "supported_languages": ["python", "javascript", "typescript", "java", "go", "rust"],
     "enable_telemetry": False,
