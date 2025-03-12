@@ -1,0 +1,16 @@
+2025-03-12 12:02:03,774 - AI-Dev-Assistant - INFO - Logging initialized at level INFO
+2025-03-12 12:02:03,947 - AI-Dev-Assistant - INFO - Response cache initialized with max size 100MB
+2025-03-12 12:02:03,990 - AI-Dev-Assistant - INFO - Git support initialized
+2025-03-12 12:02:03,990 - AI-Dev-Assistant - INFO - ProjectManager initialized with base directory: projects
+2025-03-12 12:02:03,999 - AI-Dev-Assistant - INFO - Initialized ConversationManager with file: projects\dev_conversation_history.json
+2025-03-12 12:02:03,999 - AI-Dev-Assistant - INFO - ModelAPI initialized with URL: http://localhost:11434/api/generate
+2025-03-12 12:02:04,026 - AI-Dev-Assistant - INFO - Git support initialized
+2025-03-12 12:02:04,026 - AI-Dev-Assistant - INFO - DevAssistant initialized with model: qwen2.5-coder:14b
+2025-03-12 12:02:04,026 - AI-Dev-Assistant - INFO - CommandHandler initialized
+2025-03-12 12:02:04,026 - AI-Dev-Assistant - INFO - Project initialized: logs in projects\logs
+2025-03-12 12:02:04,026 - AI-Dev-Assistant - INFO - Scanned 1 files in project logs
+2025-03-12 12:02:04,026 - AI-Dev-Assistant - INFO - Project initialized: templates in projects\templates
+2025-03-12 12:02:04,026 - AI-Dev-Assistant - INFO - Scanned 0 files in project templates
+2025-03-12 12:02:04,026 - AI-Dev-Assistant - INFO - Scanned 2 projects
+2025-03-12 12:02:06,511 - AI-Dev-Assistant - INFO - Generated 50 chars from qwen2.5-coder:14b in 2.48s (20.1 chars/sec)
+2025-03-12 12:02:36,677 - AI-Dev-Assistant - INFO - Streamed 42 chars from qwen2.5-coder:14b in 0.75s (55.6 chars/sec)
