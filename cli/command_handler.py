@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import shlex
 import datetime
 from typing import List
+import time
+import shutil
+import aiofiles
 from colorama import Fore, Style
 from config.config_manager import config_manager, logger
 from core.performance import perf_tracker
@@ -158,7 +162,7 @@ class CommandHandler:
             (":analyze", "<filename>", "Analyze code quality"),
             (":docs", "<filename> [format]", "Generate documentation (formats: markdown, rst, html)"),
             (":generate-tests", "<filename>", "Generate unit tests for a file"),
-            (":project", "create|list|info|set <args>", "Project management commands"),
+            (":project", "create|list|info|set|rename|remove|analyze|debug|improve <args>", "Project management commands"),
             (":git", "init|add|commit|status <args>", "Git operations"),
             (":search", "<query> [file_pattern]", "Search for code in project"),
             (":template", "list|use <args>", "Work with project templates"),
@@ -311,7 +315,7 @@ class CommandHandler:
     async def _project_command(self, args: List[str]) -> str:
         """Project management commands."""
         if not args:
-            return "Usage: :project create|list|info|set|rename|remove <args>"
+            return "Usage: :project create|list|info|set|rename|remove|analyze|debug|improve <args>"
 
         subcmd = args[0]
 
@@ -470,6 +474,1083 @@ class CommandHandler:
                     return f"Project '{project_name}' removed from tracking, but error deleting files: {e}"
 
             return f"Project '{project_name}' removed from tracking. Files remain at {directory}"
+
+        elif subcmd == "analyze":
+
+            if len(args) < 2 and not self.dev_assistant.current_project:
+                return "Usage: :project analyze <name>\nOr have a current project set."
+
+            # Get the project to analyze
+
+            if len(args) >= 2:
+
+                project_name = args[1]
+
+                project = await self.dev_assistant.project_manager.get_project(project_name)
+
+                if not project:
+                    return f"Project '{project_name}' not found."
+
+            else:
+
+                project = self.dev_assistant.current_project
+
+            # Make sure we have the latest file listing
+
+            await project.scan_files()
+
+            print(f"{Fore.CYAN}Analyzing project: {project.name}{Style.RESET_ALL}")
+
+            print(f"Directory: {project.directory}")
+
+            # Find Python files to analyze
+
+            python_files = [
+
+                os.path.join(project.directory, f)
+
+                for f, info in project.files.items()
+
+                if info.get('is_python', False) and not info.get('is_test', False)
+
+            ]
+
+            if not python_files:
+                return "No Python files found to analyze."
+
+            print(f"Found {len(python_files)} Python files to analyze.")
+
+            # Analysis results
+
+            results = []
+
+            issues_count = 0
+
+            lines_total = 0
+
+            # Analyze each file
+
+            for file_path in python_files:
+
+                rel_path = os.path.relpath(file_path, project.directory)
+
+                print(f"Analyzing {rel_path}... ", end="", flush=True)
+
+                # Read file content
+
+                content = await self.dev_assistant.code_handler.read_file_content(file_path)
+
+                if content.startswith("Error reading"):
+                    print(f"{Fore.RED}Error{Style.RESET_ALL}")
+
+                    results.append(f"Error reading {rel_path}")
+
+                    continue
+
+                # Analyze the code
+
+                analysis = await self.dev_assistant.code_handler.analyze_code_quality(content)
+
+                if "error" in analysis:
+                    print(f"{Fore.RED}Error{Style.RESET_ALL}")
+
+                    results.append(f"Error analyzing {rel_path}: {analysis['error']}")
+
+                    continue
+
+                # Count issues
+
+                file_issues = len(analysis["style_issues"]) + len(analysis["potential_bugs"])
+
+                issues_count += file_issues
+
+                lines_total += analysis["complexity"]["lines_of_code"]
+
+                # Print result indicator
+
+                if file_issues == 0:
+
+                    print(f"{Fore.GREEN}Good{Style.RESET_ALL}")
+
+                elif file_issues < 5:
+
+                    print(f"{Fore.YELLOW}Some issues{Style.RESET_ALL}")
+
+                else:
+
+                    print(f"{Fore.RED}Issues found{Style.RESET_ALL}")
+
+                # Add file summary to results
+
+                results.append(f"File: {rel_path}")
+
+                results.append(f"  - Lines: {analysis['complexity']['lines_of_code']}")
+
+                results.append(f"  - Functions: {analysis['complexity']['function_count']}")
+
+                results.append(f"  - Classes: {analysis['complexity']['class_count']}")
+
+                results.append(f"  - Style issues: {len(analysis['style_issues'])}")
+
+                results.append(f"  - Potential bugs: {len(analysis['potential_bugs'])}")
+
+                results.append(f"  - Overall quality: {analysis['summary']['overall_quality']}")
+
+                results.append("")
+
+            # Overall project metrics
+
+            results.insert(0, f"\n{Fore.CYAN}Project Analysis: {project.name}{Style.RESET_ALL}")
+
+            results.insert(1, f"Total Python files: {len(python_files)}")
+
+            results.insert(2, f"Total lines of code: {lines_total}")
+
+            results.insert(3, f"Total issues found: {issues_count}")
+
+            results.insert(4, "")
+
+            # Quality score (simple calculation)
+
+            if lines_total > 0:
+
+                quality_ratio = issues_count / lines_total
+
+                if quality_ratio < 0.01:
+
+                    quality = "Excellent"
+
+                elif quality_ratio < 0.05:
+
+                    quality = "Good"
+
+                elif quality_ratio < 0.1:
+
+                    quality = "Needs improvement"
+
+                else:
+
+                    quality = "Poor"
+
+            else:
+
+                quality = "Unknown"
+
+            results.insert(5, f"Overall code quality: {quality}")
+
+            results.insert(6, "")
+
+            # Create a summary report file
+
+            report_file = os.path.join(project.directory, "code_analysis_report.md")
+
+            async with aiofiles.open(report_file, 'w', encoding='utf-8') as f:
+
+                await f.write(f"# Code Analysis Report for {project.name}\n\n")
+
+                await f.write(f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+                await f.write(f"## Summary\n\n")
+
+                await f.write(f"- Total Python files: {len(python_files)}\n")
+
+                await f.write(f"- Total lines of code: {lines_total}\n")
+
+                await f.write(f"- Total issues found: {issues_count}\n")
+
+                await f.write(f"- Overall code quality: {quality}\n\n")
+
+                await f.write(f"## Files Analysis\n\n")
+
+                for file_path in python_files:
+
+                    rel_path = os.path.relpath(file_path, project.directory)
+
+                    content = await self.dev_assistant.code_handler.read_file_content(file_path)
+
+                    if content.startswith("Error reading"):
+                        await f.write(f"### {rel_path}\n\nError reading file\n\n")
+
+                        continue
+
+                    analysis = await self.dev_assistant.code_handler.analyze_code_quality(content)
+
+                    if "error" in analysis:
+                        await f.write(f"### {rel_path}\n\nError analyzing: {analysis['error']}\n\n")
+
+                        continue
+
+                    await f.write(f"### {rel_path}\n\n")
+
+                    await f.write(f"- Lines of code: {analysis['complexity']['lines_of_code']}\n")
+
+                    await f.write(f"- Functions: {analysis['complexity']['function_count']}\n")
+
+                    await f.write(f"- Classes: {analysis['complexity']['class_count']}\n")
+
+                    await f.write(f"- Overall quality: {analysis['summary']['overall_quality']}\n\n")
+
+                    if analysis["style_issues"]:
+
+                        await f.write("#### Style Issues\n\n")
+
+                        for issue in analysis["style_issues"]:
+                            await f.write(f"- Line {issue['line']}: {issue['message']}\n")
+
+                        await f.write("\n")
+
+                    if analysis["potential_bugs"]:
+
+                        await f.write("#### Potential Bugs\n\n")
+
+                        for bug in analysis["potential_bugs"]:
+                            await f.write(f"- Line {bug['line']}: {bug['message']}\n")
+
+                        await f.write("\n")
+
+            results.append(f"Detailed analysis report saved to: {report_file}")
+
+            return "\n".join(results)
+
+        elif subcmd == "debug":
+            if len(args) < 2 and not self.dev_assistant.current_project:
+                return "Usage: :project debug <project_name> [file_path] [--verbose]\nOr have a current project set."
+
+            # Get the project
+            if len(args) >= 2 and args[1] not in ["--verbose"]:
+                if os.path.exists(args[1]):  # Check if the second arg is a file path
+                    project = self.dev_assistant.current_project
+                    file_path = args[1]
+                    verbose_flag = "--verbose" in args
+                else:  # It's a project name
+                    project_name = args[1]
+                    project = await self.dev_assistant.project_manager.get_project(project_name)
+                    if not project:
+                        return f"Project '{project_name}' not found."
+                    file_path = args[2] if len(args) > 2 and args[2] not in ["--verbose"] else None
+                    verbose_flag = "--verbose" in args
+            else:
+                project = self.dev_assistant.current_project
+                file_path = None
+                verbose_flag = "--verbose" in args
+
+            if not project:
+                return "No project specified or selected."
+
+            # Refresh project files
+            await project.scan_files()
+
+            # Starting the debug report
+            results = [f"{Fore.CYAN}Project Debug Report: {project.name}{Style.RESET_ALL}"]
+            results.append(f"Directory: {project.directory}")
+            results.append(f"Files: {len(project.files)}")
+            results.append("")
+
+            # Debug specific file or all files
+            if file_path:
+                # Full path if it's relative
+                if not os.path.isabs(file_path):
+                    full_path = os.path.join(project.directory, file_path)
+                else:
+                    full_path = file_path
+
+                if not os.path.exists(full_path):
+                    return f"File not found: {file_path}"
+
+                # Read file content
+                content = await self.dev_assistant.code_handler.read_file_content(full_path)
+                if content.startswith("Error reading"):
+                    return f"Error reading file: {file_path}"
+
+                # Get file extension and determine language
+                ext = os.path.splitext(file_path)[1][1:].lower()
+                language = "python" if ext in ["py", "pyw"] else ext
+
+                results.append(f"{Fore.YELLOW}Analyzing file: {os.path.basename(file_path)}{Style.RESET_ALL}")
+
+                # Start with basic file info
+                file_size = os.path.getsize(full_path)
+                mod_time = os.path.getmtime(full_path)
+                results.append(f"Size: {file_size:,} bytes")
+                results.append(
+                    f"Last modified: {datetime.datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')}")
+                results.append("")
+
+                if language == "python":
+                    # Analyze Python code
+                    analysis = await self.dev_assistant.code_handler.analyze_code_quality(content)
+
+                    if "error" in analysis:
+                        results.append(f"Error analyzing code: {analysis['error']}")
+                    else:
+                        results.append(f"Lines of code: {analysis['complexity']['lines_of_code']}")
+                        results.append(f"Functions: {analysis['complexity']['function_count']}")
+                        results.append(f"Classes: {analysis['complexity']['class_count']}")
+                        results.append(f"Quality rating: {analysis['summary']['overall_quality']}")
+                        results.append("")
+
+                        # Show style issues
+                        if analysis["style_issues"]:
+                            results.append(f"{Fore.YELLOW}Style Issues:{Style.RESET_ALL}")
+                            for issue in analysis["style_issues"][:10]:  # Limit to first 10
+                                results.append(f"  Line {issue['line']}: {issue['message']}")
+                            if len(analysis["style_issues"]) > 10:
+                                results.append(f"  ... and {len(analysis['style_issues']) - 10} more issues.")
+                            results.append("")
+
+                        # Show potential bugs
+                        if analysis["potential_bugs"]:
+                            results.append(f"{Fore.RED}Potential Bugs:{Style.RESET_ALL}")
+                            for bug in analysis["potential_bugs"]:
+                                results.append(f"  Line {bug['line']}: {bug['message']}")
+                            results.append("")
+
+                        # Run the file if it's executable and verbose mode is on
+                        if verbose_flag and language == "python":
+                            results.append(f"{Fore.YELLOW}Executing file (test run):{Style.RESET_ALL}")
+                            try:
+                                exec_result = await self.dev_assistant.code_handler.execute_python_code(content,
+                                                                                                        timeout=10)
+                                results.append(exec_result)
+                            except Exception as e:
+                                results.append(f"Execution failed: {e}")
+                            results.append("")
+                else:
+                    # Basic analysis for non-Python files
+                    results.append(f"File type: {language} (detailed analysis not available)")
+                    results.append(f"Content preview (first 10 lines):")
+                    lines = content.split('\n')[:10]
+                    for line in lines:
+                        results.append(f"  {line}")
+                    if len(content.split('\n')) > 10:
+                        results.append("  ...")
+
+            else:
+                # Debug the entire project
+                python_files = [f for f, info in project.files.items() if info.get('is_python', False)]
+                test_files = [f for f, info in project.files.items() if info.get('is_test', False)]
+
+                results.append(f"{Fore.YELLOW}Project Structure:{Style.RESET_ALL}")
+                results.append(f"Python files: {len(python_files)}")
+                results.append(f"Test files: {len(test_files)}")
+
+                # Check for standard directories
+                std_dirs = ["src", "tests", "docs", "examples"]
+                for d in std_dirs:
+                    if os.path.exists(os.path.join(project.directory, d)):
+                        results.append(f"✓ Contains {d}/ directory")
+                    else:
+                        results.append(f"✗ Missing {d}/ directory")
+
+                # Check for important files
+                imp_files = ["README.md", "requirements.txt", "setup.py", ".gitignore"]
+                for f in imp_files:
+                    if any(file.endswith(f) for file in project.files.keys()):
+                        results.append(f"✓ Contains {f}")
+                    else:
+                        results.append(f"✗ Missing {f}")
+
+                # Code quality stats if we have Python files
+                if python_files:
+                    results.append("")
+                    results.append(f"{Fore.YELLOW}Code Quality Overview:{Style.RESET_ALL}")
+
+                    total_lines = 0
+                    total_issues = 0
+                    file_scores = []
+
+                    for py_file in python_files[:10]:  # Limit to first 10 for performance
+                        full_path = os.path.join(project.directory, py_file)
+                        content = await self.dev_assistant.code_handler.read_file_content(full_path)
+                        if not content.startswith("Error"):
+                            analysis = await self.dev_assistant.code_handler.analyze_code_quality(content)
+                            if "error" not in analysis:
+                                lines = analysis["complexity"]["lines_of_code"]
+                                issues = len(analysis["style_issues"]) + len(analysis["potential_bugs"])
+                                total_lines += lines
+                                total_issues += issues
+                                file_scores.append((py_file, lines, issues))
+
+                    if total_lines > 0:
+                        results.append(f"Total lines analyzed: {total_lines}")
+                        results.append(
+                            f"Issues found: {total_issues} ({total_issues / total_lines * 100:.1f} per 100 lines)")
+
+                        # List files with most issues
+                        if file_scores:
+                            results.append("")
+                            results.append("Files with most issues:")
+                            for file, lines, issues in sorted(file_scores, key=lambda x: x[2] / max(x[1], 1),
+                                                              reverse=True)[:3]:
+                                results.append(
+                                    f"  {file}: {issues} issues in {lines} lines ({issues / lines * 100:.1f}% issue rate)")
+
+                    # Check for test coverage
+                    if test_files:
+                        results.append("")
+                        results.append(f"{Fore.YELLOW}Test Coverage:{Style.RESET_ALL}")
+
+                        impl_files = set(f.replace("test_", "") for f in python_files if not f.startswith("test_"))
+                        test_for = set(f[5:] for f in test_files if f.startswith("test_"))
+
+                        covered = impl_files.intersection(test_for)
+                        uncovered = impl_files - test_for
+
+                        if impl_files:
+                            coverage_pct = len(covered) / len(impl_files) * 100
+                            results.append(
+                                f"Test coverage: {coverage_pct:.1f}% ({len(covered)}/{len(impl_files)} files)")
+
+                            if uncovered and len(uncovered) <= 5:
+                                results.append("Files without tests:")
+                                for f in uncovered:
+                                    results.append(f"  {f}")
+
+            # Generate detailed report file if verbose
+            if verbose_flag:
+                report_path = os.path.join(project.directory, "project_debug_report.txt")
+                # Clean ANSI color codes for file output
+                clean_results = [re.sub(r'\x1b\[[0-9;]*m', '', line) for line in results]
+
+                async with aiofiles.open(report_path, 'w', encoding='utf-8') as f:
+                    await f.write("\n".join(clean_results))
+
+                results.append("")
+                results.append(f"Detailed debug report saved to: {report_path}")
+
+            return "\n".join(results)
+
+
+        elif subcmd == "improve":
+
+            if len(args) < 2 and not self.dev_assistant.current_project:
+                return "Usage: :project improve <project_name> [--implement-suggestions] [--auto]"
+
+            # Get the project
+
+            if len(args) >= 2 and not args[1].startswith("--"):
+
+                project_name = args[1]
+
+                project = await self.dev_assistant.project_manager.get_project(project_name)
+
+                if not project:
+                    return f"Project '{project_name}' not found."
+
+            else:
+
+                project = self.dev_assistant.current_project
+
+            if not project:
+                return "No project specified or selected."
+
+            implement_suggestions = "--implement-suggestions" in args
+
+            auto_implement = "--auto" in args
+
+            # Refresh project files
+
+            await project.scan_files()
+
+            results = [f"{Fore.CYAN}Project Improvement Suggestions: {project.name}{Style.RESET_ALL}"]
+
+            results.append(f"Directory: {project.directory}")
+
+            results.append("")
+
+            # Analyze project structure
+
+            results.append(f"{Fore.YELLOW}Project Structure Improvements:{Style.RESET_ALL}")
+
+            structure_improvements = []
+
+            # Check for standard directories
+
+            for std_dir in ["src", "tests", "docs", "examples"]:
+
+                if not os.path.exists(os.path.join(project.directory, std_dir)):
+                    structure_improvements.append(f"Create a '{std_dir}/' directory for better organization")
+
+            # Check for important files
+
+            important_files = [
+
+                ("README.md", "project documentation",
+                 "# {project_name}\n\nAdd your project description here.\n\n## Installation\n\n## Usage\n\n## License\n"),
+
+                ("requirements.txt", "dependencies", "# Project dependencies\n"),
+
+                ("setup.py", "package installation", f"""#!/usr/bin/env python3
+
+        from setuptools import setup, find_packages
+
+
+        setup(
+
+            name="{project.name}",
+
+            version="0.1.0",
+
+            description="A project created with AI Dev Assistant",
+
+            author="Developer",
+
+            packages=find_packages(),
+
+            install_requires=[],
+
+        )
+
+        """),
+
+                (".gitignore", "version control exclusions", """# Python
+
+        __pycache__/
+
+        *.py[cod]
+
+        *$py.class
+
+        *.so
+
+        .Python
+
+        build/
+
+        develop-eggs/
+
+        dist/
+
+        downloads/
+
+        eggs/
+
+        .eggs/
+
+        lib/
+
+        lib64/
+
+        parts/
+
+        sdist/
+
+        var/
+
+        wheels/
+
+        *.egg-info/
+
+        .installed.cfg
+
+        *.egg
+
+        MANIFEST
+
+
+        # Virtual Environment
+
+        venv/
+
+        env/
+
+        ENV/
+
+
+        # IDE
+
+        .idea/
+
+        .vscode/
+
+        *.swp
+
+        *.swo
+
+
+        # OS
+
+        .DS_Store
+
+        Thumbs.db
+
+        """),
+
+                ("LICENSE", "licensing information", """MIT License
+
+
+        Copyright (c) 2025
+
+
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+
+        of this software and associated documentation files (the "Software"), to deal
+
+        in the Software without restriction, including without limitation the rights
+
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+
+        copies of the Software, and to permit persons to whom the Software is
+
+        furnished to do so, subject to the following conditions:
+
+
+        The above copyright notice and this permission notice shall be included in all
+
+        copies or substantial portions of the Software.
+
+
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+
+        SOFTWARE.
+
+        """)
+
+            ]
+
+            for imp_file, desc, template in important_files:
+
+                if not any(file.endswith(imp_file) for file in project.files.keys()):
+                    structure_improvements.append(f"Add {imp_file} for {desc}")
+
+            # Display structure improvements
+
+            if structure_improvements:
+
+                for i, improvement in enumerate(structure_improvements, 1):
+                    results.append(f"{i}. {improvement}")
+
+            else:
+
+                results.append("✓ Project structure follows best practices")
+
+            # Auto-implement structure improvements if requested
+
+            if auto_implement and structure_improvements:
+
+                results.append("")
+
+                results.append(f"{Fore.GREEN}Automatically implementing structure improvements...{Style.RESET_ALL}")
+
+                # Create standard directories
+
+                for std_dir in ["src", "tests", "docs", "examples"]:
+
+                    dir_path = os.path.join(project.directory, std_dir)
+
+                    if not os.path.exists(dir_path):
+                        os.makedirs(dir_path, exist_ok=True)
+
+                        results.append(f"✓ Created directory: {std_dir}/")
+
+                # Create important files with templates
+
+                for imp_file, desc, template in important_files:
+
+                    file_exists = any(file.endswith(imp_file) for file in project.files.keys())
+
+                    if not file_exists:
+                        file_path = os.path.join(project.directory, imp_file)
+
+                        # Format template with project name
+
+                        content = template.format(project_name=project.name)
+
+                        # Write file
+
+                        async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
+                            await f.write(content)
+
+                        results.append(f"✓ Created file: {imp_file}")
+
+            # Analyze code quality
+
+            python_files = [f for f, info in project.files.items() if info.get('is_python', False)]
+
+            if python_files:
+
+                results.append("")
+
+                results.append(f"{Fore.YELLOW}Code Quality Improvements:{Style.RESET_ALL}")
+
+                code_improvements = []
+
+                file_issues = {}
+
+                files_to_improve = []
+
+                # Analyze Python files
+
+                for py_file in python_files[:10]:  # Limit to first 10 for performance
+
+                    full_path = os.path.join(project.directory, py_file)
+
+                    content = await self.dev_assistant.code_handler.read_file_content(full_path)
+
+                    if not content.startswith("Error"):
+
+                        analysis = await self.dev_assistant.code_handler.analyze_code_quality(content)
+
+                        if "error" not in analysis:
+
+                            issues = []
+
+                            # Check common issues
+
+                            style_count = len(analysis["style_issues"])
+
+                            bug_count = len(analysis["potential_bugs"])
+
+                            if style_count > 0:
+                                issues.append(f"{style_count} style issues")
+
+                            if bug_count > 0:
+                                issues.append(f"{bug_count} potential bugs")
+
+                            # Check for complex functions
+
+                            complex_funcs = []
+
+                            for func_name, func_info in analysis["complexity"].get("functions", {}).items():
+
+                                if func_info.get("complexity", 0) > 8:
+                                    complex_funcs.append(func_name)
+
+                            if complex_funcs:
+                                issues.append(f"{len(complex_funcs)} complex functions")
+
+                            if issues:
+                                file_issues[py_file] = issues
+
+                                files_to_improve.append((py_file, full_path, content, analysis))
+
+                # Generate code improvement suggestions
+
+                if file_issues:
+
+                    # Find files with most issues
+
+                    worst_files = sorted(file_issues.items(), key=lambda x: len(x[1]), reverse=True)[:3]
+
+                    for file_path, issues in worst_files:
+                        code_improvements.append(f"Refactor {file_path} to address {', '.join(issues)}")
+
+                    # Add general suggestions based on patterns
+
+                    test_files = [f for f, info in project.files.items() if info.get('is_test', False)]
+
+                    implementation_files = [f for f in python_files if not any(t.endswith(f) for t in test_files)]
+
+                    if len(test_files) < len(implementation_files) // 2:
+
+                        code_improvements.append("Increase test coverage by adding more unit tests")
+
+                        # Identify files without tests
+
+                        for impl_file in implementation_files:
+
+                            base_name = os.path.basename(impl_file)
+
+                            test_name = f"test_{base_name}"
+
+                            has_test = any(os.path.basename(t) == test_name for t in test_files)
+
+                            if not has_test:
+                                code_improvements.append(f"Create tests for {impl_file}")
+
+                    for i, improvement in enumerate(code_improvements, 1):
+                        results.append(f"{i}. {improvement}")
+
+                else:
+
+                    results.append("✓ Code quality is good in analyzed files")
+
+                # Auto-implement code improvements if requested
+
+                if auto_implement and files_to_improve:
+
+                    results.append("")
+
+                    results.append(f"{Fore.GREEN}Automatically improving code quality...{Style.RESET_ALL}")
+
+                    # Take top 3 files with most issues to improve
+
+                    files_to_improve.sort(key=lambda x: len(x[3]["style_issues"]) + len(x[3]["potential_bugs"]),
+                                          reverse=True)
+
+                    for rel_path, full_path, content, analysis in files_to_improve[:3]:
+
+                        results.append(f"Improving {rel_path}...")
+
+                        # Generate prompt for improving the file
+
+                        prompt = f"Refactor and improve the following Python code in {rel_path}. Fix these issues:\n\n"
+
+                        if analysis["style_issues"]:
+
+                            prompt += "Style issues:\n"
+
+                            for issue in analysis["style_issues"][:5]:  # Limit to first 5
+
+                                prompt += f"- Line {issue['line']}: {issue['message']}\n"
+
+                        if analysis["potential_bugs"]:
+
+                            prompt += "Potential bugs:\n"
+
+                            for bug in analysis["potential_bugs"]:
+                                prompt += f"- Line {bug['line']}: {bug['message']}\n"
+
+                        # Add complexity issues
+
+                        complex_funcs = []
+
+                        for func_name, func_info in analysis["complexity"].get("functions", {}).items():
+
+                            if func_info.get("complexity", 0) > 8:
+                                complex_funcs.append((func_name, func_info))
+
+                        if complex_funcs:
+
+                            prompt += "Complex functions to simplify:\n"
+
+                            for func_name, func_info in complex_funcs:
+                                prompt += f"- {func_name} (line {func_info['line']}, complexity: {func_info['complexity']})\n"
+
+                        prompt += f"\nHere's the original code:\n```python\n{content}\n```\n\n"
+
+                        prompt += "Please provide a complete refactored version of this file with improved code quality, better documentation, and fixed issues."
+
+                        # Get AI refactored version
+
+                        self.dev_assistant.conversation.add_message("User", prompt)
+
+                        refactor_response = await self.dev_assistant.model_api.generate_response(
+
+                            self.dev_assistant.model,
+
+                            self.dev_assistant.conversation.get_full_history()
+
+                        )
+
+                        self.dev_assistant.conversation.add_message("Model", refactor_response)
+
+                        # Extract code blocks
+
+                        refactored_code = None
+
+                        for block in re.findall(r"```(?:python)?\s*(.*?)```", refactor_response, re.DOTALL):
+
+                            if len(block.strip()) > 50:  # Only use substantial code blocks
+
+                                refactored_code = block
+
+                                break
+
+                        if refactored_code:
+
+                            # Create backup
+
+                            backup_dir = os.path.join(project.directory, "backups")
+
+                            os.makedirs(backup_dir, exist_ok=True)
+
+                            backup_file = os.path.join(backup_dir,
+                                                       f"{os.path.basename(full_path)}.{int(time.time())}.bak")
+
+                            # Copy original to backup
+                            import shutil
+                            shutil.copy2(full_path, backup_file)
+
+                            # Write improved code
+
+                            async with aiofiles.open(full_path, 'w', encoding='utf-8') as f:
+
+                                await f.write(refactored_code)
+
+                            results.append(f"✓ Refactored {rel_path} (original backed up)")
+
+                        else:
+
+                            results.append(f"✗ Failed to refactor {rel_path}")
+
+                    # Auto-generate missing tests
+
+                    if "Increase test coverage" in " ".join(code_improvements):
+
+                        results.append("")
+
+                        results.append("Generating missing unit tests...")
+
+                        for impl_file in implementation_files[:2]:  # Limit to first 2
+
+                            base_name = os.path.basename(impl_file)
+
+                            test_name = f"test_{base_name}"
+
+                            if not any(os.path.basename(t) == test_name for t in test_files):
+
+                                impl_path = os.path.join(project.directory, impl_file)
+
+                                impl_content = await self.dev_assistant.code_handler.read_file_content(impl_path)
+
+                                # Create test file
+
+                                test_dir = os.path.join(project.directory, "tests")
+
+                                os.makedirs(test_dir, exist_ok=True)
+
+                                test_path = os.path.join(test_dir, test_name)
+
+                                # Generate test code
+
+                                test_prompt = f"Create a comprehensive unit test file for this Python module:\n\n```python\n{impl_content}\n```\n\n"
+
+                                test_prompt += "The test should use unittest framework, cover all public methods, and include appropriate assertions."
+
+                                self.dev_assistant.conversation.add_message("User", test_prompt)
+
+                                test_response = await self.dev_assistant.model_api.generate_response(
+
+                                    self.dev_assistant.model,
+
+                                    self.dev_assistant.conversation.get_full_history()
+
+                                )
+
+                                self.dev_assistant.conversation.add_message("Model", test_response)
+
+                                # Extract test code
+
+                                test_code = None
+
+                                for block in re.findall(r"```(?:python)?\s*(.*?)```", test_response, re.DOTALL):
+
+                                    if len(block.strip()) > 50 and "unittest" in block:  # Basic check for test code
+
+                                        test_code = block
+
+                                        break
+
+                                if test_code:
+
+                                    async with aiofiles.open(test_path, 'w', encoding='utf-8') as f:
+
+                                        await f.write(test_code)
+
+                                    results.append(f"✓ Created test file: {test_name}")
+
+                                else:
+
+                                    results.append(f"✗ Failed to generate test for {impl_file}")
+
+                    # Update the project files list after changes
+
+                    await project.scan_files()
+
+            # Generate improvement plan if requested
+
+            if implement_suggestions and not auto_implement:
+
+                results.append("")
+
+                results.append(f"{Fore.YELLOW}Improvement Plan:{Style.RESET_ALL}")
+
+                # Prepare prompt for AI to generate improvement plan
+
+                prompt = f"Generate an improvement plan for project '{project.name}' with the following issues:\n\n"
+
+                if structure_improvements:
+
+                    prompt += "Structure improvements needed:\n"
+
+                    for imp in structure_improvements:
+                        prompt += f"- {imp}\n"
+
+                    prompt += "\n"
+
+                if 'code_improvements' in locals() and code_improvements:
+
+                    prompt += "Code improvements needed:\n"
+
+                    for imp in code_improvements:
+                        prompt += f"- {imp}\n"
+
+                    prompt += "\n"
+
+                prompt += "Please provide a step-by-step plan to implement these improvements."
+
+                # Get AI response
+
+                self.dev_assistant.conversation.add_message("User", prompt)
+
+                plan_response = await self.dev_assistant.model_api.generate_response(
+
+                    self.dev_assistant.model,
+
+                    self.dev_assistant.conversation.get_full_history()
+
+                )
+
+                self.dev_assistant.conversation.add_message("Model", plan_response)
+
+                # Save improvement plan to file
+
+                plan_path = os.path.join(project.directory, "improvement_plan.md")
+
+                async with aiofiles.open(plan_path, 'w', encoding='utf-8') as f:
+
+                    await f.write(f"# Improvement Plan for {project.name}\n\n")
+
+                    await f.write(f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+                    await f.write(plan_response)
+
+                results.append(plan_response)
+
+                results.append("")
+
+                results.append(f"Improvement plan saved to: {plan_path}")
+
+            # If auto-implemented, update usage info
+
+            if auto_implement:
+
+                results.append("")
+
+                results.append(f"{Fore.GREEN}Auto-improvements completed for project: {project.name}{Style.RESET_ALL}")
+
+                # Add summary
+
+                implemented = []
+
+                if structure_improvements:
+                    implemented.append(f"- Created missing directories and files")
+
+                if 'files_to_improve' in locals() and files_to_improve:
+                    implemented.append(f"- Refactored {min(len(files_to_improve), 3)} files with code quality issues")
+
+                if 'implementation_files' in locals() and len(test_files) < len(implementation_files) // 2:
+                    implemented.append(f"- Generated unit tests for missing test coverage")
+
+                if implemented:
+
+                    results.append("Improvements implemented:")
+
+                    for imp in implemented:
+                        results.append(imp)
+
+            return "\n".join(results)
 
         else:
             return f"Unknown project subcommand: {subcmd}\nAvailable: create, list, info, set"
