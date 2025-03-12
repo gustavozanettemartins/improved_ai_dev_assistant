@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "timestamp": 1741792627.6292546,
+  "messages": [
+    {
+      "role": "User",
+      "content": "Create a simple snake Game",
+      "timestamp": 1741792627.6292498,
+      "metadata": {}
+    }
+  ]
+}

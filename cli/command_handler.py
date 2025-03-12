@@ -311,7 +311,7 @@ class CommandHandler:
     async def _project_command(self, args: List[str]) -> str:
         """Project management commands."""
         if not args:
-            return "Usage: :project create|list|info|set <args>"
+            return "Usage: :project create|list|info|set|rename|remove <args>"
 
         subcmd = args[0]
 
@@ -411,6 +411,65 @@ class CommandHandler:
 
             self.dev_assistant.current_project = project
             return f"Current project set to '{project_name}'"
+
+        elif subcmd == "rename":
+            if len(args) < 3:
+                return "Usage: :project rename <old_name> <new_name>"
+
+            old_name = args[1]
+            new_name = args[2]
+
+            project = await self.dev_assistant.project_manager.get_project(old_name)
+            if not project:
+                return f"Project '{old_name}' not found."
+
+            # Store the directory for reference
+            directory = project.directory
+
+            # Update the project name
+            project.name = new_name
+            await project.save()
+
+            # Update the projects dictionary in the manager
+            del self.dev_assistant.project_manager.projects[old_name]
+            self.dev_assistant.project_manager.projects[new_name] = project
+
+            # If this was the current project, update that reference too
+            if self.dev_assistant.current_project and self.dev_assistant.current_project.name == old_name:
+                self.dev_assistant.current_project = project
+
+            return f"Project renamed from '{old_name}' to '{new_name}' (directory remains: {directory})"
+
+        elif subcmd == "remove":
+            if len(args) < 2:
+                return "Usage: :project remove <name> [--delete-files]"
+
+            project_name = args[1]
+            delete_files = "--delete-files" in args
+
+            project = await self.dev_assistant.project_manager.get_project(project_name)
+            if not project:
+                return f"Project '{project_name}' not found."
+
+            directory = project.directory
+
+            # Remove from projects dictionary
+            del self.dev_assistant.project_manager.projects[project_name]
+
+            # If this was the current project, clear that reference
+            if self.dev_assistant.current_project and self.dev_assistant.current_project.name == project_name:
+                self.dev_assistant.current_project = None
+
+            # Optionally delete the files
+            if delete_files:
+                import shutil
+                try:
+                    shutil.rmtree(directory)
+                    return f"Project '{project_name}' removed and all files deleted from {directory}"
+                except Exception as e:
+                    return f"Project '{project_name}' removed from tracking, but error deleting files: {e}"
+
+            return f"Project '{project_name}' removed from tracking. Files remain at {directory}"
 
         else:
             return f"Unknown project subcommand: {subcmd}\nAvailable: create, list, info, set"

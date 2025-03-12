@@ -29,7 +29,7 @@ DEFAULT_CONFIG = {
     "auto_save_interval": 300,  # 5 minutes
     "enable_web_interface": False,
     "web_interface_port": 8080,
-    "git_integration": True,
+    "git_integration": False,
     "dependency_check": True,
     "code_quality_checks": True,
     "backup_files": True

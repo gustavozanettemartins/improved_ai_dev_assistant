@@ -25,7 +25,14 @@ class ProjectManager:
         try:
             self.projects = {}
 
+            # Directories to exclude from being treated as projects
+            excluded_dirs = ["backups", "logs", "templates"]
+
             for item in os.listdir(self.base_dir):
+                # Skip excluded directories
+                if item in excluded_dirs:
+                    continue
+
                 dir_path = os.path.join(self.base_dir, item)
                 if os.path.isdir(dir_path) and not item.startswith("."):
                     project = await Project.load(dir_path)

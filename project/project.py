@@ -28,7 +28,21 @@ class Project:
         """Scan the project directory for files."""
         self.files = {}
 
+        # Directories to exclude from project listing
+        excluded_dirs = ["backups", "logs", "templates"]
+
         for root, _, files in os.walk(self.directory):
+            # Skip excluded directories
+            skip = False
+            for excluded_dir in excluded_dirs:
+                if excluded_dir in root.split(os.sep):
+                    skip = True
+                    break
+
+            if skip:
+                continue
+
+            # Original code to process files
             for file in files:
                 if file.startswith(".") or "__pycache__" in root:
                     continue
