@@ -17,8 +17,8 @@ async def main(model: str = config_manager.get("default_model")):
     # Print welcome banner
     print(f"""
     {Fore.CYAN}╔═════════════════════════════════════════════════════════╗
-    ║ {Fore.YELLOW}AI Development Assistant {config_manager.get('version', '2.0.0')}{Fore.CYAN}                           ║
-    ║ {Fore.WHITE}An intelligent assistant for software development{Fore.CYAN}        ║
+    ║ {Fore.YELLOW}AI Development Assistant {config_manager.get('version', '2.0.0')}{Fore.CYAN}                          ║
+    ║ {Fore.WHITE}An intelligent assistant for software development{Fore.CYAN}       ║
     ╚═════════════════════════════════════════════════════════╝{Style.RESET_ALL}
         """)
 
