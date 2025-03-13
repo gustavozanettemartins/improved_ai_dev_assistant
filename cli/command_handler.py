@@ -14,6 +14,8 @@ from core.performance import perf_tracker
 from core.dev_assistant import DevAssistant
 from blender.blender_handler import BlenderHandler
 from cli.blender_commands import BlenderCommands
+from utils.web_search import WebSearchHandler
+from cli.web_commands import WebCommands
 
 class CommandHandler:
     """Handles command parsing and execution for the CLI interface."""
@@ -22,6 +24,15 @@ class CommandHandler:
         self.dev_assistant = dev_assistant
         self.blender_handler = BlenderHandler()
         self.blender_commands = BlenderCommands(self.blender_handler)
+        try:
+            self.web_search_handler = WebSearchHandler()
+            self.web_commands = WebCommands(self.web_search_handler)
+            logger.info("Web commands initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize web search: {e}")
+            self.web_search_handler = None
+            self.web_commands = None
+
         self.commands = {
             ":help": self._help_command,
             ":context": self._context_command,
@@ -40,7 +51,7 @@ class CommandHandler:
             ":generate-tests": self._generate_tests_command,
             ":project": self._project_command,
             ":git": self._git_command,
-            ":search": self._search_command,
+            # ":search": self._search_command,
             ":template": self._template_command,
             ":metrics": self._metrics_command,
             ":config": self._config_command,
@@ -48,6 +59,8 @@ class CommandHandler:
             ":clear": self._clear_command,
             ":dialogue": self._dialogue_command,
             ":blender": self._blender_command,
+            ":web": self._web_command,
+            ":search": self._search_shortcut,
             ":exit": self._exit_command,
         }
         logger.info("CommandHandler initialized")
@@ -1912,6 +1925,41 @@ class CommandHandler:
     async def _blender_command(self, args: List[str]) -> str:
         """Execute Blender operations."""
         return await self.blender_commands.handle_command(args)
+
+    async def _web_command(self, args: List[str]) -> str:
+        """Execute web operations."""
+        # Initialize web commands on-demand if not already done
+        if not hasattr(self, 'web_commands'):
+            self._init_web_components()
+
+            # Set a more reliable default search engine
+            await self.web_commands.set_search_engine(["duckduckgo"])
+
+        return await self.web_commands.handle_command(args)
+
+    async def _search_shortcut(self, args: List[str]) -> str:
+        """Shortcut for web search."""
+        if not args:
+            return "Usage: :search <query> [num_results]"
+
+        # Initialize web commands on-demand if not already done
+        if not hasattr(self, 'web_commands'):
+            self._init_web_components()
+
+        return await self.web_commands.web_search(args)
+
+    def _init_web_components(self):
+        """Initialize web search components on demand."""
+        try:
+            from utils.web_search import WebSearchHandler
+            from cli.web_commands import WebCommands
+
+            self.web_search_handler = WebSearchHandler()
+            self.web_commands = WebCommands(self.web_search_handler)
+            logger.info("Web commands initialized on-demand")
+        except ImportError as e:
+            logger.error(f"Failed to import web search modules: {e}")
+            raise ImportError(f"Web search functionality requires additional modules: {e}")
 
     async def _exit_command(self, args: List[str]) -> str:
         """Exit the application."""
