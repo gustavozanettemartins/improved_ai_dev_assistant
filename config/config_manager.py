@@ -35,7 +35,6 @@ DEFAULT_CONFIG = {
     "dependency_check": True,
     "code_quality_checks": True,
     "backup_files": True,
-    "blender_path": "C:/Program Files/Blender Foundation/Blender 4.3/blender.exe",
     # New configuration settings for structured logging and error handling
     "logging": {
         "app_name": "ai_dev_assistant",

@@ -12,8 +12,6 @@ from colorama import Fore, Style
 from config.config_manager import config_manager, logger
 from core.performance import perf_tracker
 from core.dev_assistant import DevAssistant
-from blender.blender_handler import BlenderHandler
-from cli.blender_commands import BlenderCommands
 from utils.web_search import WebSearchHandler
 from cli.web_commands import WebCommands
 
@@ -22,8 +20,6 @@ class CommandHandler:
 
     def __init__(self, dev_assistant: DevAssistant):
         self.dev_assistant = dev_assistant
-        self.blender_handler = BlenderHandler()
-        self.blender_commands = BlenderCommands(self.blender_handler)
         try:
             self.web_search_handler = WebSearchHandler()
             self.web_commands = WebCommands(self.web_search_handler)
@@ -58,7 +54,6 @@ class CommandHandler:
             ":model": self._model_command,
             ":clear": self._clear_command,
             ":dialogue": self._dialogue_command,
-            ":blender": self._blender_command,
             ":web": self._web_command,
             ":search": self._search_shortcut,
             ":exit": self._exit_command,
@@ -1921,10 +1916,6 @@ class CommandHandler:
                     await f.write(f"## Entry {i}\n\n{entry}\n\n")
 
         return f"\n{Fore.GREEN}Dialogue completed!{Style.RESET_ALL}\nSaved to: {filepath}"
-
-    async def _blender_command(self, args: List[str]) -> str:
-        """Execute Blender operations."""
-        return await self.blender_commands.handle_command(args)
 
     async def _web_command(self, args: List[str]) -> str:
         """Execute web operations."""
