@@ -851,8 +851,10 @@ class CommandHandler:
                 results.append(f"Test files: {len(test_files)}")
 
                 # Check for standard directories
-                std_dirs = ["src", "tests", "docs", "examples"]
-                for d in std_dirs:
+                project_structure = config_manager.get("project_structure", {})
+                dirs = project_structure.get("standard_directories", ["src", "tests", "docs", "examples"])
+
+                for d in dirs:
                     if os.path.exists(os.path.join(project.directory, d)):
                         results.append(f"✓ Contains {d}/ directory")
                     else:
@@ -1377,12 +1379,19 @@ class CommandHandler:
 
                             # Create backup
 
-                            backup_dir = os.path.join(project.directory, "backups")
+                            backup_config = config_manager.get("file_operations.backup", project.directory)
+                            backup_dir_name = backup_config.get("directory_name", "backups")
+                            backup_dir = os.path.join(project.directory, backup_dir_name)
 
                             os.makedirs(backup_dir, exist_ok=True)
 
-                            backup_file = os.path.join(backup_dir,
-                                                       f"{os.path.basename(full_path)}.{int(time.time())}.bak")
+                            naming_pattern = backup_config.get("naming_pattern", "{filename}.{timestamp}.bak")
+                            backup_file = os.path.join(
+                                backup_dir,
+                                naming_pattern.format(
+                                    filename=os.path.basename(full_path), timestamp=int(time.time())
+                                )
+                            )
 
                             # Copy original to backup
                             import shutil

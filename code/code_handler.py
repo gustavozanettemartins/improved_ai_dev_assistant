@@ -74,12 +74,21 @@ class CodeHandler:
                 os.makedirs(directory, exist_ok=True)
 
             # Create backup if file exists and backup is enabled
-            if os.path.exists(filename) and create_backup and config_manager.get("backup_files", True):
-                backup_dir = os.path.join(os.path.dirname(filename), "backups")
+            backup_config = config_manager.get("file_operations.backup", {})
+            if os.path.exists(filename) and create_backup and backup_config.get("enabled",
+                                                                                config_manager.get("backup_files",
+                                                                                                   True)):
+                backup_dir_name = backup_config.get("directory_name", "backups")
+                backup_dir = os.path.join(os.path.dirname(filename), backup_dir_name)
                 os.makedirs(backup_dir, exist_ok=True)
+
+                naming_pattern = backup_config.get("naming_pattern", "{filename}.{timestamp}.bak")
                 backup_file = os.path.join(
                     backup_dir,
-                    f"{os.path.basename(filename)}.{int(time.time())}.bak"
+                    naming_pattern.format(
+                        filename=os.path.basename(filename),
+                        timestamp=int(time.time())
+                    )
                 )
                 shutil.copy2(filename, backup_file)
                 logger.debug(f"Created backup at {backup_file}")
@@ -120,7 +129,9 @@ class CodeHandler:
 
             # Create backup if destination exists
             if os.path.exists(destination) and config_manager.get("backup_files", True):
-                backup_dir = os.path.join(os.path.dirname(destination), "backups")
+                backup_config = config_manager.get("file_operations.backup", os.path.dirname(destination))
+                backup_dir_name = backup_config.get("directory_name", "backups")
+                backup_dir = os.path.join(os.path.dirname(destination), backup_dir_name)
                 os.makedirs(backup_dir, exist_ok=True)
                 backup_file = os.path.join(
                     backup_dir,

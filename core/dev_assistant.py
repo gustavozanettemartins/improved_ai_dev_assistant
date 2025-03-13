@@ -614,14 +614,14 @@ class DevAssistant:
             self.current_project = project
 
             # Create standard directories
-            dirs = [
+            project_structure = config_manager.get("project_structure", {})
+
+            dirs = project_structure.get("standard_directories", [
                 "src",
                 "tests",
                 "docs",
-                "data",
-                "scripts",
                 "examples"
-            ]
+            ])
 
             for dir_name in dirs:
                 os.makedirs(os.path.join(project.directory, dir_name), exist_ok=True)
@@ -892,7 +892,8 @@ __version__ = "0.1.0"
             # Step 2: Create directory structure
             print(f"{Fore.YELLOW}Step 2/7: {Fore.WHITE}Creating directory structure...{Style.RESET_ALL}")
 
-            dirs = ["src", "tests", "docs", "examples"]
+            project_structure = config_manager.get("project_structure", {})
+            dirs = project_structure.get("standard_directories", ["src", "tests", "docs", "examples"])
             for d in dirs:
                 os.makedirs(os.path.join(project_dir, d), exist_ok=True)
 
@@ -1049,7 +1050,12 @@ __version__ = "0.1.0"
                             # Auto-commit fixes if tests now pass
                             if self.git_manager and "Tests passed successfully" in debug_result:
                                 await self.git_manager.add_files(project_dir)
-                                await self.git_manager.commit(project_dir, f"Fix issues in {impl_file}")
+                                git_config = config_manager.get("git", {})
+                                commit_messages = git_config.get("commit_messages", {})
+                                commit_msg = commit_messages.get("fix_code", "Fix issues in {filename}").format(
+                                    filename=impl_file
+                                )
+                                await self.git_manager.commit(project_dir, commit_msg)
                     finally:
                         os.chdir(original_dir)
                         pbar.update(1)

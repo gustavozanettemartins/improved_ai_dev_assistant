@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional, Union, Callable
 DEFAULT_CONFIG = {
     # Core settings
     "api_url": "http://localhost:11434/api/generate",
-    "log_level": "INFO",
+    "log_level": "WARNING",
     "working_dir": "projects",
     "history_file": "dev_conversation_history.json",
     "cache_dir": ".ai_dev_cache",
@@ -40,7 +40,7 @@ DEFAULT_CONFIG = {
     # Expanded logging settings
     "logging": {
         "app_name": "ai_dev_assistant",
-        "console_level": "INFO",
+        "console_level": "WARNING",
         "file_level": "DEBUG",
         "enable_json_logs": True,
         "max_log_file_size_mb": 10,
@@ -175,6 +175,107 @@ DEFAULT_CONFIG = {
         "history_file": ".ai_dev_history",
         "max_history": 1000,
         "enable_colors": True
+    },
+
+    # File operations settings
+    "file_operations": {
+        "backup": {
+            "enabled": True,  # This corresponds to the existing "backup_files" setting
+            "directory_name": "backups",  # Directory name for backups
+            "naming_pattern": "{filename}.{timestamp}.bak",  # Pattern for backup files
+            "max_backups_per_file": 10  # Maximum number of backups to keep per file
+        }
+    },
+
+    # Execution settings
+    "execution": {
+        "timeouts": {
+            "test_execution": 60,  # Seconds
+            "code_execution": 30,  # Seconds
+            "api_request": 60      # Seconds
+        },
+        "verbosity": {
+            "test_output": 2       # Test output verbosity level
+        }
+    },
+
+    # Git integration settings
+    "git": {
+        "enabled": True,  # This corresponds to the existing "git_integration" setting
+        "commit_messages": {
+            "create_file": "Create {filename} from prompt",
+            "edit_file": "Edit {filename} based on prompt",
+            "add_tests": "Add tests for {filename}",
+            "fix_code": "Fix {filename} to pass tests",
+            "refactor": "Refactor {filename} for {refactor_type}",
+            "init_project": "Initial project structure",
+            "add_files": "Add {category} files",
+            "update_files": "Update {category} files"
+        },
+        "auto_commit": True,
+        "commit_on_file_create": True,
+        "commit_on_file_edit": True
+    },
+
+    # Documentation settings
+    "documentation": {
+        "formats": {
+            "markdown": {
+                "extension": ".md",
+                "default": True
+            },
+            "rst": {
+                "extension": ".rst"
+            },
+            "html": {
+                "extension": ".html"
+            }
+        },
+        "default_format": "markdown"
+    },
+
+    # Project structure settings
+    "project_structure": {
+        "standard_directories": [
+            "src",
+            "tests",
+            "docs",
+            "data",
+            "scripts",
+            "examples"
+        ],
+        "basic_files": {
+            "README.md": "# {project_name}\n\n{description}\n\n## Installation\n\n## Usage\n\n## License\n",
+            "requirements.txt": "# Project dependencies\n",
+            ".gitignore": "\n".join([
+                "# Python",
+                "__pycache__/",
+                "*.py[cod]",
+                "*.so",
+                "env/",
+                "venv/",
+                "ENV/",
+                "env.bak/",
+                "venv.bak/",
+                "*.egg-info/",
+                "# IDE",
+                ".vscode/",
+                ".idea/",
+                "# Misc",
+                ".DS_Store",
+                "Thumbs.db"
+            ])
+        },
+        "init_py_template": """#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+\"\"\"
+{project_name}
+
+{description}
+\"\"\"
+
+__version__ = "0.1.0"
+"""
     }
 }
 
