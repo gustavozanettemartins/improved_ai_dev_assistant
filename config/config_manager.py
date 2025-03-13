@@ -23,7 +23,8 @@ DEFAULT_CONFIG = {
         "llama3.2:latest": {"temperature": 0.8, "timeout": 60},
         "deepseek-r1:32b" : {"temperature": 0.7, "timeout": 300},
         "qwen2.5-coder:7b": {"temperature": 0.7, "timeout": 60},
-        "phi4:latest": {"temperature": 0.7, "timeout": 120}
+        "phi4:latest": {"temperature": 0.7, "timeout": 120},
+        "llava:34b": {"temperature": 0.7, "timeout": 300}
     },
     "supported_languages": ["python", "javascript", "typescript", "java", "go", "rust"],
     "enable_telemetry": False,
@@ -33,7 +34,8 @@ DEFAULT_CONFIG = {
     "git_integration": False,
     "dependency_check": True,
     "code_quality_checks": True,
-    "backup_files": True
+    "backup_files": True,
+    "blender_path": "C:/Program Files/Blender Foundation/Blender 4.3/blender.exe"
 }
 
 class ConfigManager:

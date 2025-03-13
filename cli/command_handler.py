@@ -12,12 +12,16 @@ from colorama import Fore, Style
 from config.config_manager import config_manager, logger
 from core.performance import perf_tracker
 from core.dev_assistant import DevAssistant
+from blender.blender_handler import BlenderHandler
+from cli.blender_commands import BlenderCommands
 
 class CommandHandler:
     """Handles command parsing and execution for the CLI interface."""
 
     def __init__(self, dev_assistant: DevAssistant):
         self.dev_assistant = dev_assistant
+        self.blender_handler = BlenderHandler()
+        self.blender_commands = BlenderCommands(self.blender_handler)
         self.commands = {
             ":help": self._help_command,
             ":context": self._context_command,
@@ -43,6 +47,7 @@ class CommandHandler:
             ":model": self._model_command,
             ":clear": self._clear_command,
             ":dialogue": self._dialogue_command,
+            ":blender": self._blender_command,
             ":exit": self._exit_command,
         }
         logger.info("CommandHandler initialized")
@@ -1903,6 +1908,10 @@ class CommandHandler:
                     await f.write(f"## Entry {i}\n\n{entry}\n\n")
 
         return f"\n{Fore.GREEN}Dialogue completed!{Style.RESET_ALL}\nSaved to: {filepath}"
+
+    async def _blender_command(self, args: List[str]) -> str:
+        """Execute Blender operations."""
+        return await self.blender_commands.handle_command(args)
 
     async def _exit_command(self, args: List[str]) -> str:
         """Exit the application."""
