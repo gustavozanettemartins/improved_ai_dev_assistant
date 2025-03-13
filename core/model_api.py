@@ -6,7 +6,7 @@ import aiohttp
 from typing import Callable, Awaitable, Dict, Any, Optional
 from config.config_manager import config_manager, logger
 from core.performance import perf_tracker
-from utils.cache import response_cache
+# Removed import of response_cache here to break circular dependency
 from utils.http_session import HttpSessionManager
 
 
@@ -60,6 +60,9 @@ class ModelAPI:
             Generated response text
         """
         start_time = perf_tracker.start_timer("api_request")
+
+        # Delayed import to avoid circular reference
+        from utils.cache import response_cache
 
         # Check cache first
         try:
@@ -187,6 +190,9 @@ class ModelAPI:
             Complete generated response
         """
         start_time = perf_tracker.start_timer("api_stream")
+
+        # Delayed import to avoid circular reference
+        from utils.cache import response_cache
 
         # Cache check - if found, we'll simulate streaming from the cache
         try:
