@@ -1,16 +1,16 @@
-import aiohttp
-import asyncio
+#!/usr/bin/env python3
+
 import re
 import urllib.parse
-import random
 from typing import List, Dict, Any, Optional, Tuple
 from bs4 import BeautifulSoup
-from config.config_manager import logger
+from config.config_manager import config_manager, logger
 from core.performance import perf_tracker
+from utils.http_session import HttpSessionManager
 
 
 class WebSearchHandler:
-    """Handles web search operations using different search engines with improved reliability."""
+    """Handles web search operations using different search engines with improved resource management."""
 
     def __init__(self, engine: str = "duckduckgo"):
         """
@@ -20,7 +20,16 @@ class WebSearchHandler:
             engine: Search engine to use ('google', 'bing', 'duckduckgo')
         """
         self.engine = engine.lower()
-        self.session = None
+
+        # Create a specific HttpSessionManager for web searches
+        self.session_manager = HttpSessionManager(
+            name="WebSearchSession",
+            timeout=config_manager.get("timeout_seconds", 30),
+            max_retries=3,
+            retry_delay=1.0,
+            throttle_rate=0.5,
+            user_agent_rotation=True
+        )
 
         # Extended list of user agents for better diversity
         self.user_agents = [
@@ -33,51 +42,26 @@ class WebSearchHandler:
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0"
         ]
-        self.current_user_agent = random.choice(self.user_agents)
+
+        # Register user agent rotation with the session manager
+        for agent in self.user_agents:
+            self.session_manager.add_user_agent(agent)
+
+        # Set domain-specific throttling for search engines
+        self.session_manager.set_domain_throttle("www.google.com", 2.0)  # More conservative for Google
+        self.session_manager.set_domain_throttle("www.bing.com", 1.5)
+        self.session_manager.set_domain_throttle("html.duckduckgo.com", 1.0)
+
         logger.info(f"WebSearchHandler initialized with engine: {self.engine}")
 
-    async def _ensure_session(self) -> aiohttp.ClientSession:
-        """Ensure aiohttp session exists with browser-like headers."""
-        if self.session is None or self.session.closed:
-            # Create random browser-like headers
-            headers = {
-                "User-Agent": self.current_user_agent,
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Referer": "https://www.google.com/",
-                "DNT": "1",
-                "Connection": "keep-alive",
-                "Upgrade-Insecure-Requests": "1",
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-Site": "same-origin",
-                "Sec-Fetch-User": "?1"
-            }
-            # Create session with proper timeout and connection limits
-            timeout = aiohttp.ClientTimeout(total=30, connect=10)
-            self.session = aiohttp.ClientSession(headers=headers, timeout=timeout)
-            logger.debug("Created new aiohttp ClientSession")
-        return self.session
-
     async def close(self) -> None:
-        """Close the aiohttp session safely."""
-        if self.session and not self.session.closed:
-            try:
-                await self.session.close()
-                logger.debug("Closed aiohttp ClientSession")
-
-                # Give the event loop a moment to actually close connections
-                await asyncio.sleep(0.1)
-
-                # Set to None to ensure we know it's closed
-                self.session = None
-            except Exception as e:
-                logger.error(f"Error closing aiohttp session: {e}")
+        """Close the aiohttp session safely using the session manager."""
+        await self.session_manager.close()
+        logger.debug("WebSearchHandler session closed")
 
     async def search(self, query: str, num_results: int = 5) -> List[Dict[str, str]]:
         """
-        Perform a web search with improved fallback mechanisms.
+        Perform a web search with improved resource management.
 
         Args:
             query: Search query string
@@ -104,20 +88,9 @@ class WebSearchHandler:
             for engine in engines_to_try:
                 logger.info(f"Attempting search with engine: {engine}")
 
-                # Rotate user agent for each attempt
-                self.current_user_agent = random.choice(self.user_agents)
-
-                # Close any existing session to refresh headers
-                await self.close()
-
                 # Choose search method based on engine
                 try:
-                    if engine == "google":
-                        results = await self._search_engine(query, num_results, engine)
-                    elif engine == "bing":
-                        results = await self._search_engine(query, num_results, engine)
-                    elif engine == "duckduckgo" or engine == "ddg":
-                        results = await self._search_engine(query, num_results, "duckduckgo")
+                    results = await self._search_engine(query, num_results, engine)
 
                     # If results found, break the loop
                     if results:
@@ -162,13 +135,12 @@ class WebSearchHandler:
         Returns:
             List of search result dictionaries
         """
-        session = await self._ensure_session()
-
         # Engine-specific parameters
         search_url, selectors = self._get_engine_params(query, engine)
 
         try:
-            async with session.get(search_url, timeout=20) as response:
+            # Use session manager to make request
+            async with await self.session_manager.request("GET", search_url) as response:
                 if response.status != 200:
                     logger.error(f"{engine.capitalize()} search request failed with status {response.status}")
                     return []
@@ -217,9 +189,6 @@ class WebSearchHandler:
 
                 return results
 
-        except asyncio.TimeoutError:
-            logger.error(f"{engine.capitalize()} search timed out")
-            return []
         except Exception as e:
             logger.error(f"Error during {engine} search: {e}")
             return []

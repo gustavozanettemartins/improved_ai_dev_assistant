@@ -32,6 +32,87 @@ from cli.command_handler import CommandHandler
 logger = get_logger(__name__)
 
 
+async def cleanup_resources(dev_assistant, command_handler, logger):
+    """
+    Perform comprehensive cleanup of all application resources.
+
+    Args:
+        dev_assistant: The DevAssistant instance
+        command_handler: The CommandHandler instance
+        logger: Logger instance for operation tracing
+    """
+    cleanup_tasks = []
+    cleanup_errors = []
+
+    # Track resources that need closing
+    resources_to_close = []
+
+    # 1. Close model API connection
+    if hasattr(dev_assistant, 'model_api'):
+        resources_to_close.append(('model_api', dev_assistant.model_api))
+
+    # 2. Close web search handler if it exists
+    if (hasattr(command_handler, 'web_commands') and
+            hasattr(command_handler.web_commands, 'search_handler')):
+        resources_to_close.append(
+            ('web_search', command_handler.web_commands.search_handler)
+        )
+
+    # 3. Close any other HTTP sessions that might exist
+    if hasattr(dev_assistant, 'http_sessions'):
+        for name, session in dev_assistant.http_sessions.items():
+            resources_to_close.append((f'http_session_{name}', session))
+
+    # 4. Close response cache
+    from utils.cache import response_cache
+    resources_to_close.append(('response_cache', response_cache))
+
+    # Close all resources with proper error handling
+    for resource_name, resource in resources_to_close:
+        try:
+            with logger.trace_operation(f"close_{resource_name}"):
+                if hasattr(resource, 'close'):
+                    if asyncio.iscoroutinefunction(resource.close):
+                        # Create task for async close
+                        task = asyncio.create_task(resource.close())
+                        cleanup_tasks.append(task)
+                    else:
+                        # Call synchronous close
+                        resource.close()
+                        logger.info(f"Closed {resource_name} (sync)")
+        except Exception as e:
+            error_msg = f"Error closing {resource_name}: {e}"
+            logger.error(error_msg)
+            cleanup_errors.append(error_msg)
+
+    # Wait for all async close operations to complete
+    if cleanup_tasks:
+        try:
+            await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+            logger.info(f"Closed {len(cleanup_tasks)} async resources")
+        except Exception as e:
+            logger.error(f"Error during async resource cleanup: {e}")
+
+    # Handle any pending tasks
+    try:
+        pending_tasks = [
+            task for task in asyncio.all_tasks()
+            if not task.done() and task is not asyncio.current_task()
+        ]
+
+        if pending_tasks:
+            logger.info(f"Cancelling {len(pending_tasks)} pending tasks")
+            for task in pending_tasks:
+                task.cancel()
+
+            # Wait briefly for tasks to cancel
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
+    except Exception as e:
+        logger.error(f"Error cancelling pending tasks: {e}")
+
+    # Return summary of cleanup operation
+    return len(cleanup_tasks), len(cleanup_errors)
+
 @operation_logger(operation_name="main", include_args=True)
 async def main(model: str = config_manager.get("default_model")):
     """
@@ -260,40 +341,15 @@ async def main(model: str = config_manager.get("default_model")):
             # Close API sessions and other resources
             print("Closing connections...")
 
-            # Close model API session
-            with logger.trace_operation("close_model_api"):
-                await dev_assistant.model_api.close()
+            # Use the new comprehensive cleanup function
+            closed_count, error_count = await cleanup_resources(
+                dev_assistant, command_handler, logger
+            )
 
-            # Close web search session if it exists
-            if hasattr(command_handler, 'web_commands') and hasattr(command_handler.web_commands, 'search_handler'):
-                with logger.trace_operation("close_web_search"):
-                    await command_handler.web_commands.search_handler.close()
+            if error_count > 0:
+                logger.warning(f"Encountered {error_count} errors during resource cleanup")
 
-            # Add this line to explicitly clean up any remaining aiohttp sessions
-            pending_tasks = [task for task in asyncio.all_tasks()
-                             if not task.done() and task is not asyncio.current_task()]
-
-            if pending_tasks:
-                logger.info(f"Cleaning up {len(pending_tasks)} pending tasks")
-                await asyncio.gather(*pending_tasks, return_exceptions=True)
-
-        # If there was an error during cleanup, log it
-        if cleanup_boundary.error:
-            logger.warning(f"Error during cleanup: {cleanup_boundary.error}")
-
-        # Save final performance metrics
-        if config_manager.get("enable_telemetry", False):
-            try:
-                metrics_file = os.path.join(config_manager.get("working_dir"), "metrics.json")
-                with open(metrics_file, "w", encoding="utf-8") as f:
-                    json.dump(perf_tracker.get_metrics(), f, indent=2)
-                print(f"Performance metrics saved to {metrics_file}")
-                logger.info(f"Performance metrics saved to {metrics_file}")
-            except Exception as e:
-                logger.error(f"Error saving performance metrics: {e}")
-
-        print(f"\n{Fore.GREEN}Thank you for using AI Development Assistant!{Style.RESET_ALL}")
-        logger.info("Application exit complete")
+            logger.info(f"Successfully closed {closed_count} resources")
 
 
 @handle_errors(error_type=ConfigError, log_error=True)

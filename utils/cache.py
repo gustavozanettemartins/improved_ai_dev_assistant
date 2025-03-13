@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import time
 import hashlib
 import asyncio
@@ -53,6 +54,10 @@ class CacheItem:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'CacheItem':
         """Create a CacheItem from a dictionary."""
+        # Check if the required fields exist
+        if not all(k in data for k in ["key", "model", "response"]):
+            raise ValueError("Missing required fields in cache data")
+
         item = cls(
             key=data["key"],
             model=data["model"],
@@ -152,18 +157,44 @@ class ResponseCache:
     async def _save_cache_index(self) -> None:
         """Save the cache index to file asynchronously with proper error handling."""
         try:
+            # Ensure the cache directory exists
+            os.makedirs(self.cache_dir, exist_ok=True)
+
             # Create a temporary file for atomic write
             temp_file = self.cache_index_file.with_suffix('.tmp')
 
+            # Write to the temporary file
             async with aiofiles.open(temp_file, 'w', encoding='utf-8') as f:
                 await f.write(json.dumps(self.cache_index, ensure_ascii=False))
 
-            # Atomic rename for safer file operations
-            temp_file.replace(self.cache_index_file)
+            try:
+                # Atomic rename for safer file operations
+                temp_file.replace(self.cache_index_file)
+            except FileNotFoundError:
+                # Handle case where the directory structure changed between operations
+                # This can happen on Windows in some edge cases
+                os.makedirs(os.path.dirname(self.cache_index_file), exist_ok=True)
+
+                # Try a direct write approach as fallback
+                async with aiofiles.open(self.cache_index_file, 'w', encoding='utf-8') as f:
+                    await f.write(json.dumps(self.cache_index, ensure_ascii=False))
 
             logger.debug("Cache index saved successfully")
+
         except Exception as e:
             logger.error(f"Error saving cache index: {e}")
+
+            # Try a more direct approach as a last resort
+            try:
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(self.cache_index_file), exist_ok=True)
+
+                # Write directly without using a temporary file
+                with open(self.cache_index_file, 'w', encoding='utf-8') as f:
+                    json.dump(self.cache_index, f, ensure_ascii=False)
+                logger.debug("Cache index saved using fallback method")
+            except Exception as e2:
+                logger.error(f"Critical error saving cache index using fallback: {e2}")
 
     def _calculate_current_size(self) -> None:
         """Calculate the current total size of the cache."""
@@ -288,7 +319,7 @@ class ResponseCache:
 
     async def get(self, model: str, prompt: str) -> Optional[str]:
         """
-        Get a cached response if available, with optimized memory usage.
+        Get a cached response if available, with optimized memory usage and robust error handling.
 
         Args:
             model: Model identifier
@@ -303,20 +334,56 @@ class ResponseCache:
         # Check memory cache first for fastest retrieval
         cache_hit = self.memory_cache.get(key)
         if cache_hit:
-            cache_hit.update_access()
-            perf_tracker.end_timer("cache_lookup", start_time)
-            perf_tracker.increment_counter("cache_hits")
-            logger.debug(f"Memory cache hit for key: {key[:8]}...")
-            return cache_hit.response
+            try:
+                cache_hit.update_access()
+                perf_tracker.end_timer("cache_lookup", start_time)
+                perf_tracker.increment_counter("cache_hits")
+                logger.debug(f"Memory cache hit for key: {key[:8]}...")
+                return cache_hit.response
+            except Exception as e:
+                logger.warning(f"Error accessing memory cache item: {e}")
+                # Continue to disk cache check
 
         # Check disk cache
         if key in self.cache_index:
             cache_file = self.cache_dir / f"{key}.json"
             if cache_file.exists():
                 try:
-                    async with aiofiles.open(cache_file, 'r', encoding='utf-8') as f:
-                        content = await f.read()
+                    content = None
+                    # First try using aiofiles
+                    try:
+                        async with aiofiles.open(cache_file, 'r', encoding='utf-8') as f:
+                            content = await f.read()
+                    except UnicodeDecodeError:
+                        # If UTF-8 decoding fails, try with error replacement
+                        async with aiofiles.open(cache_file, 'r', encoding='utf-8', errors='replace') as f:
+                            content = await f.read()
+                            logger.warning(f"UTF-8 decode errors in cache file for key: {key[:8]}")
+                    except Exception as file_error:
+                        # If aiofiles fails, try with regular open
+                        logger.warning(f"Error with aiofiles, falling back to regular open: {file_error}")
+                        with open(cache_file, 'r', encoding='utf-8', errors='replace') as f:
+                            content = f.read()
+
+                    if not content:
+                        raise ValueError("Empty content read from cache file")
+
+                    # Try to parse JSON
+                    try:
                         data = json.loads(content)
+                    except json.JSONDecodeError as json_error:
+                        logger.warning(f"Invalid JSON in cache file: {json_error}")
+                        # Try to recover by finding JSON-like content
+                        import re
+                        json_pattern = r'(\{.*\}|\[.*\])'
+                        match = re.search(json_pattern, content, re.DOTALL)
+                        if match:
+                            try:
+                                data = json.loads(match.group(0))
+                            except:
+                                raise ValueError("Failed to recover JSON from cache file")
+                        else:
+                            raise ValueError("No valid JSON structure found in cache file")
 
                     # Update last access time and hit count
                     async with self.lock:
@@ -324,14 +391,32 @@ class ResponseCache:
                         self.cache_index[key]["hits"] = self.cache_index[key].get("hits", 0) + 1
 
                     # Store in memory cache for faster future access
-                    cache_item = CacheItem(
-                        key=key,
-                        model=data.get("model", model),
-                        response=data.get("response", ""),
-                        metadata=data.get("metadata", {})
-                    )
-                    cache_item.hits = self.cache_index[key].get("hits", 1)
-                    self.memory_cache[key] = cache_item
+                    try:
+                        # Safely extract model and response
+                        model_value = data.get("model", model)
+                        response_value = data.get("response", "")
+
+                        if not response_value:
+                            logger.warning(f"Empty response in cache file for key: {key[:8]}")
+
+                        cache_item = CacheItem(
+                            key=key,
+                            model=model_value,
+                            response=response_value,
+                            metadata=data.get("metadata", {})
+                        )
+                        cache_item.hits = self.cache_index[key].get("hits", 1)
+                        self.memory_cache[key] = cache_item
+                    except Exception as item_error:
+                        logger.warning(f"Error creating CacheItem: {item_error}")
+                        # Extract just the response
+                        response = data.get("response", "")
+                        perf_tracker.end_timer("cache_lookup", start_time)
+                        perf_tracker.increment_counter("cache_hits")
+                        logger.debug(f"Minimal disk cache hit for key: {key[:8]} (no memory caching)")
+                        # Schedule index save but don't wait
+                        asyncio.create_task(self._save_cache_index())
+                        return response
 
                     # Clean up memory cache if needed
                     self._cleanup_memory_cache()
@@ -342,19 +427,30 @@ class ResponseCache:
                     perf_tracker.end_timer("cache_lookup", start_time)
                     perf_tracker.increment_counter("cache_hits")
                     logger.debug(f"Disk cache hit for key: {key[:8]}...")
-                    return data.get("response")
+                    return data.get("response", "")
 
                 except Exception as e:
                     logger.error(f"Error reading cache file: {e}")
 
                     # Remove corrupted entry
                     try:
-                        cache_file.unlink(missing_ok=True)
+                        # Use try/except instead of missing_ok for Python 3.7 compatibility
+                        try:
+                            cache_file.unlink()
+                        except FileNotFoundError:
+                            pass
+
                         async with self.lock:
                             self.cache_index.pop(key, None)
                             await self._save_cache_index()
-                    except Exception:
-                        pass
+                    except Exception as cleanup_error:
+                        logger.warning(f"Error cleaning up corrupted cache entry: {cleanup_error}")
+
+            # Handle case where index has entry but file doesn't exist
+            elif key in self.cache_index:
+                async with self.lock:
+                    self.cache_index.pop(key, None)
+                    await self._save_cache_index()
 
         perf_tracker.end_timer("cache_lookup", start_time)
         perf_tracker.increment_counter("cache_misses")

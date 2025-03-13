@@ -2,7 +2,7 @@
 
 import aiohttp
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import random
 import time
 from urllib.parse import urlparse
@@ -19,6 +19,7 @@ class HttpSessionManager(AsyncSessionResource):
     - Configurable timeout and retry behavior
     - User agent rotation
     - Request throttling
+    - Domain-specific rate limiting
     """
 
     def __init__(self,
@@ -28,7 +29,8 @@ class HttpSessionManager(AsyncSessionResource):
                  max_retries: int = 3,
                  retry_delay: float = 1.0,
                  throttle_rate: float = 0.5,
-                 user_agent_rotation: bool = True):
+                 user_agent_rotation: bool = True,
+                 name: str = "HttpSession"):
         """
         Initialize the HTTP session manager.
 
@@ -40,8 +42,9 @@ class HttpSessionManager(AsyncSessionResource):
             retry_delay: Delay between retries in seconds
             throttle_rate: Minimum seconds between requests (rate limiting)
             user_agent_rotation: Whether to rotate user agents
+            name: Name for the session (for logging)
         """
-        super().__init__(name="HttpSession", max_retries=max_retries, retry_delay=retry_delay)
+        super().__init__(name=name, max_retries=max_retries, retry_delay=retry_delay)
         self.base_url = base_url
         self.default_headers = headers or {}
         self.timeout_seconds = timeout
@@ -56,17 +59,21 @@ class HttpSessionManager(AsyncSessionResource):
         self.domain_throttle_rates: Dict[str, float] = {}
 
         # User agents for rotation
-        self.user_agents = [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15",
-            "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0"
-        ]
-        self.current_user_agent = random.choice(self.user_agents)
+        self.user_agents: List[str] = []
+        self.current_user_agent: Optional[str] = None
+
+    def add_user_agent(self, user_agent: str) -> None:
+        """
+        Add a user agent to the rotation pool.
+
+        Args:
+            user_agent: User agent string
+        """
+        if user_agent not in self.user_agents:
+            self.user_agents.append(user_agent)
+            # If this is our first user agent, set it as current
+            if self.current_user_agent is None:
+                self.current_user_agent = user_agent
 
     async def _initialize_resource(self) -> aiohttp.ClientSession:
         """
@@ -78,8 +85,8 @@ class HttpSessionManager(AsyncSessionResource):
         # Prepare default headers
         headers = self.default_headers.copy()
 
-        # Add user agent if not present
-        if 'User-Agent' not in headers and self.user_agent_rotation:
+        # Add user agent if not present and we have one available
+        if 'User-Agent' not in headers and self.user_agent_rotation and self.current_user_agent:
             headers['User-Agent'] = self.current_user_agent
 
         # Configure timeout
@@ -143,7 +150,7 @@ class HttpSessionManager(AsyncSessionResource):
 
     def _rotate_user_agent(self) -> None:
         """Rotate to a different user agent."""
-        if self.user_agent_rotation:
+        if self.user_agent_rotation and self.user_agents:
             # Avoid using the same user agent twice in a row
             available_agents = [ua for ua in self.user_agents if ua != self.current_user_agent]
             if available_agents:
@@ -209,7 +216,7 @@ class HttpSessionManager(AsyncSessionResource):
             self._resource.headers.update(headers)
 
     async def get(self, url: str, headers: Optional[Dict[str, str]] = None,
-                  params: Optional[Dict[str, str]] = None, **kwargs) -> aiohttp.ClientResponse:
+                  params: Optional[Dict[str, Any]] = None, **kwargs) -> aiohttp.ClientResponse:
         """
         Perform an HTTP GET request with proper resource management.
 
@@ -319,7 +326,3 @@ class HttpSessionManager(AsyncSessionResource):
         async with await self.request(method, url, **kwargs) as response:
             response.raise_for_status()
             return await response.read()
-
-
-# Create a global instance for general use
-http_session = HttpSessionManager()

@@ -3,7 +3,7 @@
 import json
 import asyncio
 import aiohttp
-from typing import Callable, Awaitable
+from typing import Callable, Awaitable, Dict, Any, Optional
 from config.config_manager import config_manager, logger
 from core.performance import perf_tracker
 from utils.cache import response_cache
@@ -62,11 +62,15 @@ class ModelAPI:
         start_time = perf_tracker.start_timer("api_request")
 
         # Check cache first
-        cached_response = await response_cache.get(model, prompt)
-        if cached_response:
-            duration = perf_tracker.end_timer("api_request", start_time)
-            logger.info(f"Cache hit for prompt (model: {model}, {len(prompt)} chars) in {duration:.2f}s")
-            return cached_response
+        try:
+            cached_response = await response_cache.get(model, prompt)
+            if cached_response:
+                duration = perf_tracker.end_timer("api_request", start_time)
+                logger.info(f"Cache hit for prompt (model: {model}, {len(prompt)} chars) in {duration:.2f}s")
+                return cached_response
+        except Exception as cache_error:
+            logger.warning(f"Error checking cache: {cache_error}")
+            # Continue without using cache
 
         # Get model-specific settings
         model_settings = config_manager.get("models", {}).get(model, {})
@@ -82,16 +86,16 @@ class ModelAPI:
 
         try:
             # Use the session manager to handle the request
-            response_json = await self.session_manager.fetch_json(
-                method="POST",
-                url=self.api_url,
-                json=payload
-            )
+            response_json = await self._safe_fetch_json(payload)
 
             response_text = response_json.get("response", "No response received")
 
             # Cache the successful response
-            await response_cache.store(model, prompt, response_text)
+            try:
+                await response_cache.store(model, prompt, response_text)
+            except Exception as cache_error:
+                logger.warning(f"Error storing in cache: {cache_error}")
+                # Continue without caching
 
             duration = perf_tracker.end_timer("api_request", start_time)
             chars_per_second = len(response_text) / max(duration, 0.1)
@@ -118,6 +122,56 @@ class ModelAPI:
             perf_tracker.end_timer("api_request", start_time)
             return error_msg
 
+    async def _safe_fetch_json(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Safely fetch JSON from the API, handling various error cases.
+
+        Args:
+            payload: Request payload
+
+        Returns:
+            Response as a dictionary
+
+        Raises:
+            Various exceptions that might occur during the request
+        """
+        try:
+            async with await self.session_manager.request(
+                    method="POST",
+                    url=self.api_url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+            ) as response:
+                # Check status first
+                response.raise_for_status()
+
+                # Try to parse as JSON
+                try:
+                    return await response.json()
+                except aiohttp.ContentTypeError:
+                    # Handle non-JSON responses
+                    text = await response.text()
+                    logger.warning(f"API returned non-JSON response: {text[:200]}...")
+
+                    # Try to find JSON in the response text (some APIs wrap JSON in other content)
+                    json_match = None
+                    try:
+                        import re
+                        json_pattern = r'(\{.*\}|\[.*\])'
+                        matches = re.search(json_pattern, text, re.DOTALL)
+                        if matches:
+                            json_match = matches.group(0)
+                            return json.loads(json_match)
+                    except:
+                        pass
+
+                    # Return text as response if we couldn't parse JSON
+                    return {"response": text}
+
+        except Exception as e:
+            logger.error(f"Error in API request: {e}")
+            raise
+
     async def stream_response(self, model: str, prompt: str, callback: Callable[[str], Awaitable[None]],
                               temperature: float = None) -> str:
         """
@@ -135,20 +189,24 @@ class ModelAPI:
         start_time = perf_tracker.start_timer("api_stream")
 
         # Cache check - if found, we'll simulate streaming from the cache
-        cached_response = await response_cache.get(model, prompt)
-        if cached_response:
-            # Simulate streaming from cache by chunking the response
-            full_response = cached_response
-            chunk_size = max(len(full_response) // 10, 1)  # Divide into ~10 chunks
+        try:
+            cached_response = await response_cache.get(model, prompt)
+            if cached_response:
+                # Simulate streaming from cache by chunking the response
+                full_response = cached_response
+                chunk_size = max(len(full_response) // 10, 1)  # Divide into ~10 chunks
 
-            for i in range(0, len(full_response), chunk_size):
-                chunk = full_response[i:i + chunk_size]
-                await callback(chunk)
-                await asyncio.sleep(0.1)  # Brief pause between chunks
+                for i in range(0, len(full_response), chunk_size):
+                    chunk = full_response[i:i + chunk_size]
+                    await callback(chunk)
+                    await asyncio.sleep(0.1)  # Brief pause between chunks
 
-            duration = perf_tracker.end_timer("api_stream", start_time)
-            logger.info(f"Streamed {len(full_response)} chars from cache in {duration:.2f}s")
-            return full_response
+                duration = perf_tracker.end_timer("api_stream", start_time)
+                logger.info(f"Streamed {len(full_response)} chars from cache in {duration:.2f}s")
+                return full_response
+        except Exception as cache_error:
+            logger.warning(f"Error checking cache for streaming: {cache_error}")
+            # Continue without using cache
 
         # Get model-specific settings
         model_settings = config_manager.get("models", {}).get(model, {})
@@ -176,7 +234,12 @@ class ModelAPI:
 
                 # Process the streaming response
                 async for line in response.content:
-                    line_text = line.decode('utf-8').strip()
+                    try:
+                        line_text = line.decode('utf-8', errors='replace').strip()
+                    except Exception as e:
+                        logger.warning(f"Error decoding stream content: {e}")
+                        continue
+
                     if not line_text or not line_text.startswith('{'):
                         continue
 
@@ -190,7 +253,10 @@ class ModelAPI:
                         logger.warning(f"Failed to parse streaming response: {line_text}")
 
             # Cache the complete response
-            await response_cache.store(model, prompt, full_response)
+            try:
+                await response_cache.store(model, prompt, full_response)
+            except Exception as cache_error:
+                logger.warning(f"Error storing streaming response in cache: {cache_error}")
 
             duration = perf_tracker.end_timer("api_stream", start_time)
             chars_per_second = len(full_response) / max(duration, 0.1)
