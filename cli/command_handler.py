@@ -51,6 +51,7 @@ class CommandHandler:
             ":template": self._template_command,
             ":metrics": self._metrics_command,
             ":config": self._config_command,
+            ":show-config": self._config_show_command,
             ":model": self._model_command,
             ":clear": self._clear_command,
             ":dialogue": self._dialogue_command,
@@ -1960,6 +1961,11 @@ class CommandHandler:
         except ImportError as e:
             logger.error(f"Failed to import web search modules: {e}")
             raise ImportError(f"Web search functionality requires additional modules: {e}")
+
+    async def _config_show_command(self, args: List[str]) -> str:
+        """Show current configuration settings."""
+        config_manager.print_config()
+        return "Configuration displayed above."
 
     async def _exit_command(self, args: List[str]) -> str:
         """Exit the application with proper cleanup."""
