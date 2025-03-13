@@ -20,20 +20,32 @@ class CodeHandler:
     """Handles code extraction, file operations, and test execution."""
 
     @staticmethod
+    def normalize_code(code: str, language: str = "python") -> str:
+        """
+        Normalize code by trimming whitespace and removing stray prefixes.
+        For Python, removes any leading 'thon' followed by whitespace.
+        """
+        normalized = code.strip()
+        if language.lower() == "python" and normalized.startswith("thon"):
+            normalized = re.sub(r"^thon\s*", "", normalized)
+        return normalized
+
+    @staticmethod
     async def extract_code(response: str, language: str = "python") -> List[str]:
         """
         Extract code blocks of a specific language from text.
         Supports multiple code block formats with or without language tags.
+        Any stray leading 'thon' is removed during normalization.
         """
         try:
             patterns = [
-                # Regular markdown code blocks
+                # Regular markdown code blocks with language tag
                 rf"```{language}\s*(.*?)```",
                 # Generic code blocks that might be our language
                 r"```\s*(.*?)```",
                 # HTML style code blocks
                 rf"<pre><code.*?>{language}(.*?)</code></pre>",
-                # XML style code blocks (some LLMs use these)
+                # XML style code blocks
                 rf"<code language=['\"]?{language}['\"]?>(.*?)</code>"
             ]
 
@@ -42,21 +54,19 @@ class CodeHandler:
                 matches = re.findall(pattern, response, re.DOTALL)
                 codes.extend(matches)
 
-            # If we didn't find any language-specific blocks, look for unmarked code blocks
+            # Fallback: search for Python-like indentation patterns if no matches found
             if not codes and language == "python":
-                # Look for Python-like indentation patterns
                 matches = re.findall(
                     r"(?:^|\n)(?:def|class|import|from|if|for|while|try|with)(?:\s+.+?:(?:\n(?:\s+.+\n)+))", response)
                 if matches:
                     codes.extend(matches)
 
-            # Clean up extracted code
+            # Normalize and clean up extracted code blocks
             cleaned_codes = []
             for code in codes:
-                # Trim whitespace and ensure consistent newlines
-                cleaned = code.strip()
-                if cleaned:
-                    cleaned_codes.append(cleaned)
+                normalized = CodeHandler.normalize_code(code, language)
+                if normalized:
+                    cleaned_codes.append(normalized)
 
             perf_tracker.increment_counter("code_blocks_extracted", len(cleaned_codes))
             return cleaned_codes
@@ -66,8 +76,11 @@ class CodeHandler:
 
     @staticmethod
     async def write_code_to_file(code: str, filename: str, create_backup: bool = True) -> str:
-        """Write code to a file with optional backup."""
+        """Write normalized code to a file with optional backup."""
         try:
+            # Normalize the code to remove stray 'thon'
+            code = CodeHandler.normalize_code(code, "python")
+
             # Create directory if it doesn't exist
             directory = os.path.dirname(filename)
             if directory and not os.path.exists(directory):
@@ -129,7 +142,7 @@ class CodeHandler:
 
             # Create backup if destination exists
             if os.path.exists(destination) and config_manager.get("backup_files", True):
-                backup_config = config_manager.get("file_operations.backup", os.path.dirname(destination))
+                backup_config = config_manager.get("file_operations.backup", {})
                 backup_dir_name = backup_config.get("directory_name", "backups")
                 backup_dir = os.path.join(os.path.dirname(destination), backup_dir_name)
                 os.makedirs(backup_dir, exist_ok=True)
@@ -151,22 +164,23 @@ class CodeHandler:
     @staticmethod
     async def execute_python_code(code: str, timeout: int = 30, safe_mode: bool = True) -> str:
         """
-        Execute Python code in a controlled environment with timeout and safety restrictions.
+        Execute normalized Python code in a controlled environment with timeout and safety restrictions.
 
         Args:
-            code: Python code to execute
-            timeout: Maximum execution time in seconds
-            safe_mode: If True, use restricted execution environment
+            code: Python code to execute.
+            timeout: Maximum execution time in seconds.
+            safe_mode: If True, use restricted execution environment.
 
         Returns:
-            String containing execution results or error messages
+            String containing execution results or error messages.
         """
-        # Create a unique temporary file for the code
+        # Normalize the code before execution
+        code = CodeHandler.normalize_code(code, "python")
+
         fd, temp_path = tempfile.mkstemp(suffix='.py', prefix='ai_dev_exec_')
         os.close(fd)
 
         try:
-            # Extract potential pip install commands and separate them
             lines = code.splitlines()
             pip_commands = []
             code_lines = []
@@ -178,7 +192,6 @@ class CodeHandler:
                 else:
                     code_lines.append(line)
 
-            # Process pip install commands if any
             install_output = []
             if pip_commands:
                 for cmd in pip_commands:
@@ -209,12 +222,9 @@ class CodeHandler:
                                 except Exception as e:
                                     install_output.append(f"⚠️ Error during installation: {e}")
 
-            # Write the python code to the temporary file
             final_code = "\n".join(code_lines)
 
-            # Add sandbox restrictions if in safe mode
             if safe_mode:
-                # Add restricted builtins context
                 restricted_header = """
 import builtins
 import os
@@ -239,64 +249,49 @@ class RestrictedModule:
             raise PermissionError(f"Access to {name} is restricted for security")
         return getattr(self._real_module, name)
 
-# Restrict os module
 _original_os = os
-os = RestrictedModule(os, _blocked_attributes)  # noqa
+os = RestrictedModule(os, _blocked_attributes)
 sys.modules['os'] = os
 
-# Restrict subprocess module
 sys.modules['subprocess'] = None
 
-# Custom print to capture output
 _original_print = print
 _output_buffer = []
 
-@wraps(_original_print)
 def _safe_print(*args, **kwargs):
-    # Replace file parameter with our capturing mechanism
     kwargs.pop('file', None)
     s = " ".join(str(arg) for arg in args)
     _output_buffer.append(s)
     _original_print(s, **kwargs)
 
-print = _safe_print  # noqa
+print = _safe_print
 
-# Prevent importing restricted modules
 _original_import = builtins.__import__
 
-@wraps(_original_import)
 def _safe_import(name, *args, **kwargs):
-    restricted_modules = [
-        'subprocess', 'multiprocessing', 'socket', 'shutil'
-    ]
+    restricted_modules = ['subprocess', 'multiprocessing', 'socket', 'shutil']
     if name in restricted_modules:
         raise ImportError(f"Import of {name} is restricted for security")
     return _original_import(name, *args, **kwargs)
 
 builtins.__import__ = _safe_import
 
-# Add traceback for debugging
 import traceback
 """
                 final_code = restricted_header + "\n\n" + final_code + "\n\n" + """
-# Print any uncaught exceptions
 try:
-    # Your code runs above this
     pass
 except Exception as e:
     print(f"Error: {e}")
     print(traceback.format_exc())
 finally:
-    # This will be used to retrieve the output
     if '_output_buffer' in locals():
         print("\\n".join(_output_buffer))
 """
 
-            # Write the code to the temp file
             async with aiofiles.open(temp_path, "w", encoding="utf-8") as f:
                 await f.write(final_code)
 
-            # Execute in a separate process with timeout
             process = await asyncio.create_subprocess_exec(
                 sys.executable, temp_path,
                 stdout=asyncio.subprocess.PIPE,
@@ -308,7 +303,6 @@ finally:
                 stdout_str = stdout.decode(errors='replace').strip() if stdout else ""
                 stderr_str = stderr.decode(errors='replace').strip() if stderr else ""
 
-                # Process the output
                 if process.returncode != 0:
                     error_output = f"Execution failed with code {process.returncode}:\n{stderr_str}"
                     if safe_mode:
@@ -325,7 +319,6 @@ finally:
                 return "\n".join(install_output + [output])
 
             except asyncio.TimeoutError:
-                # Force terminate the process
                 process.terminate()
                 try:
                     await asyncio.wait_for(process.wait(), timeout=2)
@@ -338,7 +331,6 @@ finally:
             logger.error(f"Error during code execution: {str(e)}", exc_info=True)
             return f"Error during code execution: {str(e)}"
         finally:
-            # Clean up temporary file
             try:
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
@@ -349,11 +341,9 @@ finally:
     async def run_tests(test_file: str, verbosity: int = 2, timeout: int = 60) -> str:
         """Run unit tests with improved output handling and timeout."""
         try:
-            # Ensure test file exists
             if not os.path.exists(test_file):
                 return f"Test file {test_file} does not exist."
 
-            # Run tests in a separate process
             process = await asyncio.create_subprocess_exec(
                 sys.executable, "-m", "unittest", test_file, f"-v{verbosity}",
                 stdout=asyncio.subprocess.PIPE,
@@ -365,7 +355,6 @@ finally:
                 stdout_str = stdout.decode(errors='replace').strip() if stdout else ""
                 stderr_str = stderr.decode(errors='replace').strip() if stderr else ""
 
-                # Format the output
                 if process.returncode == 0:
                     result = f"✅ Tests passed successfully:\n{stdout_str}"
                 else:
@@ -375,7 +364,6 @@ finally:
                 return result
 
             except asyncio.TimeoutError:
-                # Force terminate the process
                 process.terminate()
                 try:
                     await asyncio.wait_for(process.wait(), timeout=2)
@@ -414,10 +402,8 @@ finally:
         }
 
         try:
-            # Parse the code
             tree = ast.parse(code)
 
-            # Analyze imports
             imports = []
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
@@ -430,11 +416,8 @@ finally:
 
             result["imports"] = sorted(imports)
 
-            # Count function and class definitions
             function_count = sum(1 for node in ast.walk(tree) if isinstance(node, ast.FunctionDef))
             class_count = sum(1 for node in ast.walk(tree) if isinstance(node, ast.ClassDef))
-
-            # Calculate complexity metrics
             lines = len(code.splitlines())
             complexity = {
                 "lines_of_code": lines,
@@ -443,19 +426,12 @@ finally:
                 "avg_line_length": sum(len(line) for line in code.splitlines()) / max(lines, 1)
             }
 
-            # Function complexity (counting branches as a simple metric)
             functions = {}
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef):
-                    # Count branches (if, for, while, etc.)
-                    branches = 0
-                    for child in ast.walk(node):
-                        if isinstance(child, (ast.If, ast.For, ast.While, ast.Try)):
-                            branches += 1
-
-                    # Count parameters
+                    branches = sum(
+                        1 for child in ast.walk(node) if isinstance(child, (ast.If, ast.For, ast.While, ast.Try)))
                     params = len(node.args.args)
-
                     functions[node.name] = {
                         "complexity": branches,
                         "parameters": params,
@@ -465,10 +441,8 @@ finally:
             complexity["functions"] = functions
             result["complexity"] = complexity
 
-            # Basic style checking
             lines = code.splitlines()
             for i, line in enumerate(lines, 1):
-                # Check line length (PEP8 recommends 79 characters)
                 if len(line) > 100:
                     result["style_issues"].append({
                         "line": i,
@@ -476,7 +450,6 @@ finally:
                         "message": f"Line too long ({len(line)} > 100 characters)"
                     })
 
-                # Check indentation (should be multiples of 4 for Python)
                 if line.strip() and (len(line) - len(line.lstrip())) % 4 != 0:
                     result["style_issues"].append({
                         "line": i,
@@ -484,7 +457,6 @@ finally:
                         "message": "Indentation should be a multiple of 4 spaces"
                     })
 
-                # Check for trailing whitespace
                 if line.rstrip() != line:
                     result["style_issues"].append({
                         "line": i,
@@ -492,9 +464,7 @@ finally:
                         "message": "Line has trailing whitespace"
                     })
 
-            # Check for potential bugs and anti-patterns
             for node in ast.walk(tree):
-                # Check for bare except
                 if isinstance(node, ast.ExceptHandler) and node.type is None:
                     result["potential_bugs"].append({
                         "line": node.lineno,
@@ -502,7 +472,6 @@ finally:
                         "message": "Use of bare 'except:' (consider catching specific exceptions)"
                     })
 
-                # Check for mutable default arguments
                 if isinstance(node, ast.FunctionDef):
                     for default in node.args.defaults:
                         if isinstance(default, (ast.List, ast.Dict, ast.Set)):
@@ -512,7 +481,6 @@ finally:
                                 "message": f"Function '{node.name}' uses mutable default argument"
                             })
 
-            # Generate summary
             result["summary"] = {
                 "lines_of_code": complexity["lines_of_code"],
                 "functions": function_count,
@@ -528,7 +496,6 @@ finally:
             return result
 
         except SyntaxError as e:
-            # Return syntax error information
             return {
                 "error": "Syntax error in code",
                 "details": str(e),
@@ -545,23 +512,19 @@ finally:
         Generate documentation from code.
 
         Args:
-            code: Source code to document
-            language: Programming language
-            doc_format: Output format (markdown, rst, html)
+            code: Source code to document.
+            language: Programming language.
+            doc_format: Output format (markdown, rst, html).
 
         Returns:
-            Generated documentation as a string
+            Generated documentation as a string.
         """
         if language != "python":
             return f"Documentation generation not yet supported for {language}"
 
         try:
             tree = ast.parse(code)
-
-            # Extract module docstring
             module_doc = ast.get_docstring(tree) or "No module documentation"
-
-            # Extract classes and their methods
             classes = {}
             functions = []
 
@@ -569,7 +532,6 @@ finally:
                 if isinstance(node, ast.ClassDef):
                     class_doc = ast.get_docstring(node) or "No class documentation"
                     methods = {}
-
                     for item in node.body:
                         if isinstance(item, ast.FunctionDef):
                             method_doc = ast.get_docstring(item) or "No method documentation"
@@ -579,13 +541,11 @@ finally:
                                 "params": params,
                                 "line": item.lineno
                             }
-
                     classes[node.name] = {
                         "doc": class_doc,
                         "methods": methods,
                         "line": node.lineno
                     }
-
                 elif isinstance(node, ast.FunctionDef):
                     func_doc = ast.get_docstring(node) or "No function documentation"
                     params = [arg.arg for arg in node.args.args]
@@ -596,7 +556,6 @@ finally:
                         "line": node.lineno
                     })
 
-            # Generate documentation based on format
             if doc_format == "markdown":
                 return CodeHandler._generate_markdown_docs(module_doc, classes, functions)
             elif doc_format == "rst":
@@ -632,13 +591,10 @@ finally:
                 lines.append(f"*Line: {class_info['line']}*\n")
                 lines.append(class_info['doc'])
                 lines.append("\n")
-
                 if class_info['methods']:
                     lines.append("\n#### Methods\n")
                     for method_name, method_info in class_info['methods'].items():
-                        params_str = ', '.join(
-                            ['self'] + method_info['params']) if method_name != '__init__' else ', '.join(
-                            ['self'] + method_info['params'])
+                        params_str = ', '.join(['self'] + method_info['params'])
                         lines.append(f"##### `{method_name}({params_str})`\n")
                         lines.append(f"*Line: {method_info['line']}*\n")
                         lines.append(method_info['doc'])
@@ -652,7 +608,7 @@ finally:
         lines = ["Module Documentation", "===================", "", module_doc, ""]
 
         if functions:
-            lines.append("\nFunctions", "---------", "")
+            lines.extend(["", "Functions", "---------", ""])
             for func in functions:
                 lines.append(f"{func['name']}({', '.join(func['params'])})")
                 lines.append("~" * (len(func['name']) + len(', '.join(func['params'])) + 2))
@@ -662,7 +618,7 @@ finally:
                 lines.append("")
 
         if classes:
-            lines.append("\nClasses", "-------", "")
+            lines.extend(["", "Classes", "-------", ""])
             for class_name, class_info in classes.items():
                 lines.append(f"{class_name}")
                 lines.append("~" * len(class_name))
@@ -670,14 +626,12 @@ finally:
                 lines.append("")
                 lines.append(class_info['doc'])
                 lines.append("")
-
                 if class_info['methods']:
-                    lines.append("\nMethods:")
+                    lines.append("")
+                    lines.append("Methods:")
                     lines.append("")
                     for method_name, method_info in class_info['methods'].items():
-                        params_str = ', '.join(
-                            ['self'] + method_info['params']) if method_name != '__init__' else ', '.join(
-                            ['self'] + method_info['params'])
+                        params_str = ', '.join(['self'] + method_info['params'])
                         lines.append(f"{method_name}({params_str})")
                         lines.append("^" * (len(method_name) + len(params_str) + 2))
                         lines.append(f"*Line: {method_info['line']}*")
@@ -717,13 +671,10 @@ finally:
                 html.append(f"<h3><code>{class_name}</code></h3>")
                 html.append(f"<p class='line-info'>Line: {class_info['line']}</p>")
                 html.append(f"<p>{class_info['doc']}</p>")
-
                 if class_info['methods']:
                     html.append("<h4>Methods</h4>")
                     for method_name, method_info in class_info['methods'].items():
-                        params_str = ', '.join(
-                            ['self'] + method_info['params']) if method_name != '__init__' else ', '.join(
-                            ['self'] + method_info['params'])
+                        params_str = ', '.join(['self'] + method_info['params'])
                         html.append("<div class='method'>")
                         html.append(f"<h4><code>{method_name}({params_str})</code></h4>")
                         html.append(f"<p class='line-info'>Line: {method_info['line']}</p>")
