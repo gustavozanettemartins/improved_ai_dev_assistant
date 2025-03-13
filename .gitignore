@@ -3,3 +3,8 @@ projects/logs/ai_dev_assistant_20250312.log
 *.pyc
 *.pyc
 *.pyc
+*.log
+*.json
+*.bak
+*.pyc
+config/__pycache__/config_manager.cpython-313.pyc

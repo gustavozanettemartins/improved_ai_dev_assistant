@@ -52,14 +52,25 @@ class WebSearchHandler:
                 "Sec-Fetch-Site": "same-origin",
                 "Sec-Fetch-User": "?1"
             }
+            # Note: Using a context manager for proper cleanup
             self.session = aiohttp.ClientSession(headers=headers)
+            logger.debug("Created new aiohttp ClientSession")
         return self.session
 
     async def close(self) -> None:
         """Close the aiohttp session."""
         if self.session and not self.session.closed:
-            await self.session.close()
-            self.session = None
+            try:
+                await self.session.close()
+                logger.debug("Closed aiohttp ClientSession")
+
+                # Give the event loop a moment to actually close connections
+                await asyncio.sleep(0.1)
+
+                # Set to None to ensure we know it's closed
+                self.session = None
+            except Exception as e:
+                logger.error(f"Error closing aiohttp session: {e}")
 
     async def search(self, query: str, num_results: int = 5) -> List[Dict[str, str]]:
         """

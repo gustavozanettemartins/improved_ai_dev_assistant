@@ -1962,5 +1962,13 @@ class CommandHandler:
             raise ImportError(f"Web search functionality requires additional modules: {e}")
 
     async def _exit_command(self, args: List[str]) -> str:
-        """Exit the application."""
+        """Exit the application with proper cleanup."""
+        # Clean up web search sessions if they exist
+        if hasattr(self, 'web_commands') and hasattr(self.web_commands, 'search_handler'):
+            try:
+                await self.web_commands.search_handler.close()
+                logger.info("Web search session closed successfully")
+            except Exception as e:
+                logger.error(f"Error closing web search session: {e}")
+
         return ":exit"

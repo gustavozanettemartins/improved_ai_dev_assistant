@@ -125,9 +125,32 @@ async def main(model: str = config_manager.get("default_model")):
     print("Saving conversation history...")
     dev_assistant.conversation.save_history()
 
-    # Close API session
+    # Close API sessions and other resources
     print("Closing connections...")
-    await dev_assistant.model_api.close()
+    try:
+        # Close model API session
+        await dev_assistant.model_api.close()
+
+        # Close web search session if it exists
+        if hasattr(command_handler, 'web_commands') and hasattr(command_handler.web_commands, 'search_handler'):
+            await command_handler.web_commands.search_handler.close()
+
+        # Add this line to explicitly clean up any remaining aiohttp sessions
+        await asyncio.gather(*[task for task in asyncio.all_tasks()
+                               if not task.done() and task is not asyncio.current_task()],
+                             return_exceptions=True)
+
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}")
+
+    # Save final performance metrics
+    if config_manager.get("enable_telemetry", False):
+        metrics_file = os.path.join(config_manager.get("working_dir"), "metrics.json")
+        with open(metrics_file, "w", encoding="utf-8") as f:
+            json.dump(perf_tracker.get_metrics(), f, indent=2)
+        print(f"Performance metrics saved to {metrics_file}")
+
+    print(f"\n{Fore.GREEN}Thank you for using AI Development Assistant!{Style.RESET_ALL}")
 
     # Save final performance metrics
     if config_manager.get("enable_telemetry", False):
