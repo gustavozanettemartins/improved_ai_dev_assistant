@@ -8,3 +8,6 @@ projects/logs/ai_dev_assistant_20250312.log
 *.bak
 *.pyc
 config/__pycache__/config_manager.cpython-313.pyc
+*.pyc
+*.json
+projects/dev_conversation_history.json
