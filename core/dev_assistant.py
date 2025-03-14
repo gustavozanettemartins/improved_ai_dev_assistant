@@ -9,6 +9,8 @@ import datetime
 import asyncio
 
 import aiofiles
+import aiohttp
+from bs4 import BeautifulSoup
 from tqdm import tqdm
 from colorama import Fore, Style
 from typing import List, Dict, Any
@@ -1283,3 +1285,30 @@ __version__ = "0.1.0"
             data_file_info = f"\nData files provided in './data/': {', '.join(processed_files)}" + data_file_info
 
         return data_file_info
+
+    @staticmethod
+    def extract_text_from_html(html: str) -> str:
+        """Extracts human-readable text from HTML content."""
+        soup = BeautifulSoup(html, "html.parser")
+        # Remove script and style elements
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
+        # Optionally, remove elements that might not contain useful text, like headers or footers
+        # for tag in soup.find_all(class_=["header", "footer", "nav"]):
+        #     tag.decompose()
+        text = soup.get_text(separator="\n")
+        # Clean and collapse whitespace
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        return "\n".join(lines)
+
+    async def fetch_url_content(self, url: str) -> str:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        return f"Error: Failed to fetch URL, status code: {response.status}"
+                    html = await response.text()
+                    return self.extract_text_from_html(html)
+        except Exception as e:
+            return f"Error fetching URL: {e}"
+

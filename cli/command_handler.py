@@ -57,6 +57,7 @@ class CommandHandler:
             ":clear": self._clear_command,
             ":dialogue": self._dialogue_command,
             ":web": self._web_command,
+            ":explain-url": self._explain_url_command,
             ":search": self._search_shortcut,
             ":exit": self._exit_command,
         }
@@ -73,6 +74,21 @@ class CommandHandler:
         except Exception as e:
             logger.error(f"Error parsing command: {e}")
             return user_input.split()
+
+    async def _explain_url_command(self, args: List[str]) -> str:
+        if not args:
+            return "Usage: :explain_url <url>\nExample: :explain_url https://example.com"
+
+        url = args[0]
+        # Fetch and clean the webpage content
+        content = await self.dev_assistant.fetch_url_content(url)
+        if content.startswith("Error"):
+            return content
+
+        # Prepare a prompt instructing the model to explain the content
+        prompt = f"Please provide a detailed explanation of the following webpage content:\n\n{content}"
+        explanation = await self.dev_assistant.model_api.generate_response(self.dev_assistant.model, prompt)
+        return explanation
 
     async def handle_command(self, command_args: List[str]) -> str:
         """Handle a parsed command."""
